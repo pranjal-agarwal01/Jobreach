@@ -1,0 +1,173 @@
+{
+  "_comment": "Synthetic, fictional. Long content: two tracks, an internship in an Experience section plus three projects each.",
+  "contact": {
+    "name": "Diya Raman",
+    "location": "Chennai, Tamil Nadu, India",
+    "phone": "+91 90000 00002",
+    "email": "diya.raman@example.com",
+    "social": [
+      {"text": "linkedin.com/in/diya-raman-example", "url": "https://linkedin.com/in/diya-raman-example"},
+      {"text": "github.com/diya-raman-example", "url": "https://github.com/diya-raman-example"},
+      {"text": "kaggle.com/diyaraman-example — Notebooks Expert", "url": "https://kaggle.com/diyaraman-example"}
+    ]
+  },
+  "facts": [
+    {"id": "f1", "kind": "role", "text": "Data Analyst Intern at Kovai Retail Pvt Ltd, May to Jul 2025", "confirmed": true},
+    {"id": "f2", "kind": "metric", "text": "Automated the weekly sales report across 38 stores, from about 6 hours of manual work to a 10-minute scheduled job", "confirmed": true},
+    {"id": "f3", "kind": "metric", "text": "Found that 14% of SKUs caused 60% of stockouts; the category team changed reorder levels for them", "confirmed": true},
+    {"id": "f4", "kind": "role", "text": "Built a Power BI dashboard used by 5 regional managers in weekly reviews", "confirmed": true},
+    {"id": "f5", "kind": "role", "text": "Cleaned 2.1 million POS rows, fixing duplicate bills and store-code mismatches", "confirmed": true},
+    {"id": "f6", "kind": "project", "text": "ChurnLens: telecom churn prediction on a public 7,043-customer dataset", "confirmed": true},
+    {"id": "f7", "kind": "metric", "text": "ChurnLens XGBoost reached ROC-AUC 0.86 against 0.79 for logistic regression", "confirmed": true},
+    {"id": "f8", "kind": "project", "text": "ChurnLens uses SHAP to explain each prediction to a non-technical reader", "confirmed": true},
+    {"id": "f9", "kind": "project", "text": "ChurnLens chooses its decision threshold from a retention-offer cost model rather than 0.5", "confirmed": true},
+    {"id": "f10", "kind": "project", "text": "CropCast: district-level rice yield forecasting from 20 years of public agriculture and rainfall data", "confirmed": true},
+    {"id": "f11", "kind": "metric", "text": "CropCast Prophet with rainfall regressors lowered MAPE from 18% to 11% against a seasonal naive baseline", "confirmed": true},
+    {"id": "f12", "kind": "project", "text": "CropCast uses rolling-origin backtesting so no future data leaks into training", "confirmed": true},
+    {"id": "f13", "kind": "project", "text": "CropCast maps forecasts per district with GeoPandas", "confirmed": true},
+    {"id": "f14", "kind": "project", "text": "ReviewSense: sentiment model for Tamil-English code-mixed product reviews", "confirmed": true},
+    {"id": "f15", "kind": "metric", "text": "ReviewSense fine-tuned multilingual BERT reached macro-F1 0.78 against 0.64 for TF-IDF logistic regression", "confirmed": true},
+    {"id": "f16", "kind": "project", "text": "ReviewSense hand-labelled 3,000 reviews with two annotators, Cohen's kappa 0.71", "confirmed": true},
+    {"id": "f17", "kind": "project", "text": "ReviewSense served through FastAPI, about 40 ms per review on CPU", "confirmed": true},
+    {"id": "f18", "kind": "project", "text": "OpenCity Dashboard: explorer for 90,000 public civic complaints, built in Streamlit on PostgreSQL", "confirmed": true},
+    {"id": "f19", "kind": "project", "text": "OpenCity Dashboard showed median resolution time by ward and complaint type", "confirmed": true},
+    {"id": "f20", "kind": "project", "text": "OpenCity Dashboard indexed queries so every filter responds in under a second", "confirmed": true},
+    {"id": "f21", "kind": "award", "text": "Google Data Analytics Professional Certificate", "confirmed": true},
+    {"id": "f22", "kind": "award", "text": "Deep Learning Specialization, DeepLearning.AI", "confirmed": true},
+    {"id": "f23", "kind": "award", "text": "Kaggle Notebooks Expert", "confirmed": true},
+    {"id": "f24", "kind": "award", "text": "2nd place, college datathon of 60 teams, 2025", "confirmed": true},
+    {"id": "f25", "kind": "role", "text": "President, Data Science Club, 2025 to 2026; organised a 200-participant datathon", "confirmed": true},
+    {"id": "f26", "kind": "role", "text": "Teaching assistant for Statistics I, 2024; ran weekly lab sessions for 45 students", "confirmed": true}
+  ],
+  "items": {
+    "kovai_intern": {
+      "id": "kovai_intern",
+      "kind": "experience",
+      "name": "Data Analyst Intern",
+      "tagline": "Kovai Retail Pvt Ltd",
+      "period": "May 2025 – Jul 2025",
+      "stack": "SQL, Python, Pandas, Power BI",
+      "stack_label": "Tools",
+      "bullets": [
+        {"id": "kovai.b1", "text": "Automated the weekly sales report across 38 stores, turning about six hours of manual spreadsheet work into a ten-minute scheduled job.", "fact_ids": ["f1", "f2"]},
+        {"id": "kovai.b2", "text": "Found that 14% of SKUs caused 60% of stockouts, and the category team changed reorder levels for those items based on the analysis.", "fact_ids": ["f3"]},
+        {"id": "kovai.b3", "text": "Built a Power BI dashboard of sales, margin and stock cover that five regional managers used in their weekly reviews.", "fact_ids": ["f4"]},
+        {"id": "kovai.b4", "text": "Cleaned 2.1 million point-of-sale rows, resolving duplicate bills and store-code mismatches that had inflated reported sales in two regions.", "fact_ids": ["f5"]}
+      ]
+    },
+    "churn": {
+      "id": "churn",
+      "name": "ChurnLens",
+      "tagline": "Telecom Churn Prediction",
+      "links": [{"text": "GitHub", "url": "https://github.com/diya-raman-example/churnlens"}],
+      "period": "Jan 2025 – Mar 2025",
+      "stack": "Python, scikit-learn, XGBoost, SHAP, Pandas",
+      "bullets": [
+        {"id": "churn.b1", "text": "Predicted which telecom customers will leave next month on a public 7,043-customer dataset, so retention offers reach the right people first.", "fact_ids": ["f6"]},
+        {"id": "churn.b2", "text": "Tuned an XGBoost classifier to ROC-AUC 0.86 against 0.79 for a logistic regression baseline, using stratified five-fold cross-validation.", "fact_ids": ["f7"]},
+        {"id": "churn.b3", "text": "Explained every prediction with SHAP values, showing a non-technical reader which contract and billing factors drove each customer's risk.", "fact_ids": ["f8"]},
+        {"id": "churn.b4", "text": "Chose the decision threshold from a cost model of retention offers rather than the default 0.5, trading recall against offer spend.", "fact_ids": ["f9"]}
+      ]
+    },
+    "crop": {
+      "id": "crop",
+      "name": "CropCast",
+      "tagline": "District Yield Forecasting",
+      "links": [{"text": "GitHub", "url": "https://github.com/diya-raman-example/cropcast"}],
+      "period": "Aug 2025 – Oct 2025",
+      "stack": "Python, statsmodels, Prophet, GeoPandas",
+      "bullets": [
+        {"id": "crop.b1", "text": "Forecast district-level rice yield from 20 years of public agriculture and rainfall records, for planning procurement before the harvest arrives.", "fact_ids": ["f10"]},
+        {"id": "crop.b2", "text": "Added rainfall regressors to Prophet, lowering MAPE from 18% to 11% against a seasonal naive baseline across the test seasons.", "fact_ids": ["f11"]},
+        {"id": "crop.b3", "text": "Evaluated with rolling-origin backtesting so no future season ever leaks into training, the mistake a random train-test split would make.", "fact_ids": ["f12"]},
+        {"id": "crop.b4", "text": "Mapped forecasts and their error bands per district with GeoPandas, making the weakest-forecast regions visible at a glance.", "fact_ids": ["f13"]}
+      ]
+    },
+    "reviewsent": {
+      "id": "reviewsent",
+      "name": "ReviewSense",
+      "tagline": "Code-Mixed Review Sentiment",
+      "links": [{"text": "GitHub", "url": "https://github.com/diya-raman-example/reviewsense"}],
+      "period": "Nov 2025 – Feb 2026",
+      "stack": "Python, PyTorch, Hugging Face Transformers, FastAPI",
+      "bullets": [
+        {"id": "rs.b1", "text": "Classified sentiment in Tamil-English code-mixed product reviews, which English-only sentiment models misread because they ignore the Tamil half.", "fact_ids": ["f14"]},
+        {"id": "rs.b2", "text": "Fine-tuned multilingual BERT to macro-F1 0.78 against 0.64 for a TF-IDF logistic regression baseline on a held-out review set.", "fact_ids": ["f15"]},
+        {"id": "rs.b3", "text": "Hand-labelled 3,000 reviews with a second annotator, measuring agreement at Cohen's kappa 0.71 before training on the labels.", "fact_ids": ["f16"]},
+        {"id": "rs.b4", "text": "Served the model through a FastAPI endpoint at about 40 ms per review on CPU, with batched inference for bulk scoring.", "fact_ids": ["f17"]}
+      ]
+    },
+    "dash": {
+      "id": "dash",
+      "name": "OpenCity Dashboard",
+      "tagline": "Civic Complaints Explorer",
+      "period": "Jun 2024 – Aug 2024",
+      "stack": "Python, Streamlit, PostgreSQL",
+      "bullets": [
+        {"id": "dash.b1", "text": "Built an explorer over 90,000 public civic complaints so residents can see which kinds of complaints actually get resolved in their ward.", "fact_ids": ["f18"]},
+        {"id": "dash.b2", "text": "Computed median resolution time by ward and complaint type, surfacing drainage complaints as the slowest category in most wards.", "fact_ids": ["f19"]},
+        {"id": "dash.b3", "text": "Indexed the PostgreSQL tables behind each filter so every view responds in under a second on the full complaint history.", "fact_ids": ["f20"]}
+      ]
+    }
+  },
+  "education": [
+    {
+      "institution": "Coromandel College of Arts and Science",
+      "degree": "B.Sc, Data Science",
+      "meta": "Chennai, Tamil Nadu · Jun 2023 – May 2026",
+      "result": "CGPA: 8.9 / 10"
+    },
+    {
+      "institution": "Adyar Senior Secondary School",
+      "lines": ["Class XII — 91.2% (2023)", "Class X — 94.0% (2021)"]
+    }
+  ],
+  "sections": [
+    {"id": "certs", "heading": "Awards & Certifications", "style": "list", "entries": [
+      {"id": "c1", "text": "2nd place, college datathon of 60 teams — 2025", "fact_ids": ["f24"]},
+      {"id": "c2", "text": "Kaggle Notebooks Expert", "fact_ids": ["f23"]},
+      {"id": "c3", "text": "Google Data Analytics Professional Certificate", "tracks": ["data"], "fact_ids": ["f21"]},
+      {"id": "c4", "text": "Deep Learning Specialization — DeepLearning.AI", "tracks": ["ml"], "fact_ids": ["f22"]}
+    ]},
+    {"id": "roles", "heading": "Other Roles & Responsibilities", "style": "detail", "entries": [
+      {"id": "r1", "lead": "President, Data Science Club (2025 – 2026)", "text": " — organised a 200-participant datathon with two industry judges.", "fact_ids": ["f25"]},
+      {"id": "r2", "lead": "Teaching Assistant, Statistics I (2024)", "text": " — ran weekly lab sessions for 45 students.", "fact_ids": ["f26"]}
+    ]}
+  ],
+  "tracks": {
+    "data": {
+      "key": "data",
+      "label": "Data Analyst",
+      "title_line": "Data Analyst · B.Sc Data Science, 2026",
+      "summary": "Data science graduate who turns messy operational data into decisions people act on: a sales report that went from six manual hours to a scheduled job, a stockout analysis that changed reorder levels, a forecast that beats the baseline it replaced. Comfortable across SQL, Python and dashboards, and careful about evaluation and leakage.",
+      "left_sections": [
+        {"heading": "Experience", "item_ids": ["kovai_intern"]},
+        {"heading": "Projects", "item_ids": ["churn", "crop", "dash"]}
+      ],
+      "skills": [
+        {"label": "Languages", "items": "Python, SQL, R"},
+        {"label": "Analysis", "items": "Pandas, NumPy, statsmodels, Hypothesis Testing, A/B Test Design, Time-Series Forecasting"},
+        {"label": "BI & Reporting", "items": "Power BI, Tableau, Excel (Power Query, pivot tables), Streamlit"},
+        {"label": "Machine Learning", "items": "scikit-learn, XGBoost, SHAP"},
+        {"label": "Data Stores", "items": "PostgreSQL, MySQL, BigQuery"}
+      ]
+    },
+    "ml": {
+      "key": "ml",
+      "label": "ML Engineer",
+      "title_line": "Machine Learning Engineer · B.Sc Data Science, 2026",
+      "summary": "Data science graduate who builds models that are measured before they are trusted: a code-mixed sentiment model beating its baseline by 14 F1 points on double-annotated labels, a churn model whose threshold comes from a cost model. Work the whole path from labelling and training to serving behind an API.",
+      "left_sections": [
+        {"heading": "Experience", "item_ids": ["kovai_intern"]},
+        {"heading": "Projects", "item_ids": ["reviewsent", "churn", "crop"]}
+      ],
+      "skills": [
+        {"label": "Languages", "items": "Python, SQL"},
+        {"label": "Deep Learning", "items": "PyTorch, Hugging Face Transformers, Fine-tuning, Tokenisation"},
+        {"label": "Machine Learning", "items": "scikit-learn, XGBoost, SHAP, Cross-validation, Threshold Tuning"},
+        {"label": "Evaluation", "items": "Macro-F1, ROC-AUC, MAPE, Backtesting, Inter-annotator Agreement"},
+        {"label": "Serving & Data", "items": "FastAPI, Docker, PostgreSQL, Pandas"}
+      ]
+    }
+  }
+}

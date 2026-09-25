@@ -1,0 +1,158 @@
+{
+  "_comment": "Synthetic, fictional. Three tracks choosing different projects from one pool, track-filtered awards, two education entries. The fullstack track carries four projects.",
+  "contact": {
+    "name": "ROHAN DAS",
+    "location": "Kolkata, West Bengal, India",
+    "phone": "+91 90000 00005",
+    "email": "rohan.das@example.com",
+    "social": [
+      {"text": "linkedin.com/in/rohan-das-example", "url": "https://linkedin.com/in/rohan-das-example"},
+      {"text": "github.com/rohan-das-example", "url": "https://github.com/rohan-das-example"},
+      {"text": "leetcode.com/u/rohandas-example — 350+ solved", "url": "https://leetcode.com/u/rohandas-example/"}
+    ]
+  },
+  "facts": [
+    {"id": "f1", "kind": "project", "text": "Splitsy: expense-splitting app for hostel roommates, built because shared costs were tracked in a group chat", "confirmed": true},
+    {"id": "f2", "kind": "metric", "text": "Splitsy settles a group's debts in at most n-1 payments using a greedy min-cash-flow algorithm", "confirmed": true},
+    {"id": "f3", "kind": "metric", "text": "Splitsy used by 140 students across 3 hostels in its first semester", "confirmed": true},
+    {"id": "f4", "kind": "project", "text": "Splitsy uses optimistic UI updates with server reconciliation so offline edits sync", "confirmed": true},
+    {"id": "f5", "kind": "project", "text": "TutorLink: marketplace matching college tutors with school students", "confirmed": true},
+    {"id": "f6", "kind": "project", "text": "TutorLink built with Next.js server components and PostgreSQL via Prisma", "confirmed": true},
+    {"id": "f7", "kind": "metric", "text": "TutorLink Lighthouse performance score 96 on mobile after image and bundle optimisation", "confirmed": true},
+    {"id": "f8", "kind": "project", "text": "TutorLink booking uses a database exclusion constraint so two students cannot book the same slot", "confirmed": true},
+    {"id": "f9", "kind": "project", "text": "PixelForge: image-processing API for resizing and watermarking uploads", "confirmed": true},
+    {"id": "f10", "kind": "metric", "text": "PixelForge processes images in a Celery worker pool; about 60 images per second on a 4-core machine", "confirmed": true},
+    {"id": "f11", "kind": "project", "text": "PixelForge caches results by content hash in S3-compatible storage, skipping repeat work", "confirmed": true},
+    {"id": "f12", "kind": "project", "text": "PixelForge API has API-key auth and per-key rate limits", "confirmed": true},
+    {"id": "f13", "kind": "project", "text": "Devfolio Kit: portfolio generator that turns a JSON file into a static portfolio site", "confirmed": true},
+    {"id": "f14", "kind": "project", "text": "Devfolio Kit has 6 themes built with Tailwind CSS and accessible colour contrast", "confirmed": true},
+    {"id": "f15", "kind": "metric", "text": "Devfolio Kit has 210 GitHub stars", "confirmed": true},
+    {"id": "f16", "kind": "award", "text": "Winner, college web development hackathon, 2025", "confirmed": true},
+    {"id": "f17", "kind": "award", "text": "Meta Front-End Developer Certificate", "confirmed": true},
+    {"id": "f18", "kind": "award", "text": "AWS Certified Cloud Practitioner", "confirmed": true},
+    {"id": "f19", "kind": "role", "text": "Web Lead, Tech Fest 2025; led a team of 6 building the fest site used for 3,000 registrations", "confirmed": true},
+    {"id": "f20", "kind": "role", "text": "Open-source contributor: 5 merged pull requests to a React component library", "confirmed": true}
+  ],
+  "items": {
+    "splitsy": {
+      "id": "splitsy",
+      "name": "Splitsy",
+      "tagline": "Shared Expense Tracker",
+      "links": [{"text": "Live", "url": "https://splitsy.example.com"}, {"text": "GitHub", "url": "https://github.com/rohan-das-example/splitsy"}],
+      "period": "Feb 2025 – Jun 2025",
+      "stack": "React, TypeScript, Node.js, Express, MongoDB",
+      "bullets": [
+        {"id": "sp.b1", "text": "Built an expense-splitting app for hostel roommates, who were tracking shared costs in a group chat and losing track of who owed whom.", "fact_ids": ["f1"]},
+        {"id": "sp.b2", "text": "Settled each group's debts in at most n-1 payments with a greedy min-cash-flow algorithm instead of pairwise repayments.", "fact_ids": ["f2"]},
+        {"id": "sp.b3", "text": "Grew to 140 students across three hostels in the first semester, spread entirely by roommates inviting each other.", "fact_ids": ["f3"]},
+        {"id": "sp.b4", "text": "Used optimistic UI updates with server reconciliation, so expenses added offline sync cleanly once the hostel Wi-Fi returns.", "fact_ids": ["f4"]}
+      ]
+    },
+    "tutorlink": {
+      "id": "tutorlink",
+      "name": "TutorLink",
+      "tagline": "Tutoring Marketplace",
+      "links": [{"text": "GitHub", "url": "https://github.com/rohan-das-example/tutorlink"}],
+      "period": "Aug 2025 – Dec 2025",
+      "stack": "Next.js, TypeScript, PostgreSQL, Prisma, Tailwind CSS",
+      "bullets": [
+        {"id": "tl.b1", "text": "Built a marketplace matching college tutors with school students, replacing word-of-mouth tutoring that left most tutors underbooked.", "fact_ids": ["f5"]},
+        {"id": "tl.b2", "text": "Rendered listings with Next.js server components over PostgreSQL through Prisma, keeping the client bundle small on low-end phones.", "fact_ids": ["f6"]},
+        {"id": "tl.b3", "text": "Reached a Lighthouse mobile performance score of 96 after optimising images and splitting the bundle by route.", "fact_ids": ["f7"]},
+        {"id": "tl.b4", "text": "Prevented double-booked slots with a database exclusion constraint rather than application checks that race under load.", "fact_ids": ["f8"]}
+      ]
+    },
+    "pixelforge": {
+      "id": "pixelforge",
+      "name": "PixelForge",
+      "tagline": "Image Processing API",
+      "links": [{"text": "GitHub", "url": "https://github.com/rohan-das-example/pixelforge"}],
+      "period": "Jan 2026 – Apr 2026",
+      "stack": "Python, FastAPI, Celery, Redis, Pillow, MinIO, Docker",
+      "bullets": [
+        {"id": "pf.b1", "text": "Built an image-processing API for resizing and watermarking uploads, so small shops stop editing product photos by hand.", "fact_ids": ["f9"]},
+        {"id": "pf.b2", "text": "Moved processing to a Celery worker pool, handling about 60 images per second on a four-core machine without blocking requests.", "fact_ids": ["f10"]},
+        {"id": "pf.b3", "text": "Cached results by content hash in S3-compatible storage, so repeated requests for the same transform skip processing entirely.", "fact_ids": ["f11"]},
+        {"id": "pf.b4", "text": "Secured the API with key-based auth and per-key rate limits, returning clear 429 responses with retry-after headers.", "fact_ids": ["f12"]}
+      ]
+    },
+    "devfolio": {
+      "id": "devfolio",
+      "name": "Devfolio Kit",
+      "tagline": "Portfolio Site Generator",
+      "links": [{"text": "GitHub", "url": "https://github.com/rohan-das-example/devfolio-kit"}],
+      "period": "Jun 2024 – Sep 2024",
+      "stack": "React, Vite, Tailwind CSS",
+      "bullets": [
+        {"id": "dk.b1", "text": "Built a generator that turns one JSON file into a static portfolio site, for students who want a portfolio without writing CSS.", "fact_ids": ["f13"]},
+        {"id": "dk.b2", "text": "Designed six themes in Tailwind CSS that meet accessible colour-contrast ratios in both light and dark modes.", "fact_ids": ["f14"]},
+        {"id": "dk.b3", "text": "Reached 210 GitHub stars, with issues and theme requests arriving from students at other colleges.", "fact_ids": ["f15"]}
+      ]
+    }
+  },
+  "education": [
+    {
+      "institution": "Hooghly Institute of Technology",
+      "degree": "B.Tech, Computer Science & Engineering",
+      "meta": "Kolkata, West Bengal · Aug 2023 – May 2027",
+      "result": "CGPA: 8.3 / 10"
+    },
+    {
+      "institution": "South Point Higher Secondary",
+      "lines": ["Class XII — 88.4% (2023)", "Class X — 92.6% (2021)"]
+    }
+  ],
+  "sections": [
+    {"id": "awards", "heading": "Awards & Certifications", "style": "list", "entries": [
+      {"id": "aw1", "text": "Winner, college web development hackathon — 2025", "fact_ids": ["f16"]},
+      {"id": "aw2", "text": "Front-End Developer Certificate — Meta", "tracks": ["fullstack", "frontend"], "fact_ids": ["f17"]},
+      {"id": "aw3", "text": "AWS Certified Cloud Practitioner", "tracks": ["fullstack", "backend"], "fact_ids": ["f18"]}
+    ]},
+    {"id": "roles", "heading": "Other Roles & Responsibilities", "style": "detail", "entries": [
+      {"id": "r1", "lead": "Web Lead, Tech Fest 2025", "text": " — led a team of six building the fest site that took 3,000 registrations.", "fact_ids": ["f19"]},
+      {"id": "r2", "lead": "Open-source contributor", "text": " — five merged pull requests to a React component library.", "tracks": ["fullstack", "frontend"], "fact_ids": ["f20"]}
+    ]}
+  ],
+  "tracks": {
+    "fullstack": {
+      "key": "fullstack",
+      "label": "Full-stack",
+      "title_line": "Full-Stack Developer · B.Tech Computer Science, 2027",
+      "summary": "Final-year CS student who ships complete web products people use: an expense app 140 hostel students adopted, a tutoring marketplace with a 96 Lighthouse score, and the APIs behind them.",
+      "left_sections": [{"heading": "Projects", "item_ids": ["splitsy", "tutorlink", "pixelforge", "devfolio"]}],
+      "skills": [
+        {"label": "Languages", "items": "TypeScript, JavaScript, Python, SQL"},
+        {"label": "Frontend", "items": "React, Next.js, Tailwind CSS"},
+        {"label": "Backend", "items": "Node.js, Express, FastAPI, Celery, REST APIs"},
+        {"label": "Data", "items": "PostgreSQL, Prisma, MongoDB, Redis"},
+        {"label": "DevOps", "items": "Docker, GitHub Actions, AWS"}
+      ]
+    },
+    "frontend": {
+      "key": "frontend",
+      "label": "Frontend",
+      "title_line": "Frontend Developer · B.Tech Computer Science, 2027",
+      "summary": "Final-year CS student who builds fast, accessible interfaces: a portfolio generator with 210 GitHub stars, a marketplace scoring 96 on mobile Lighthouse, and an offline-tolerant expense app.",
+      "left_sections": [{"heading": "Projects", "item_ids": ["devfolio", "tutorlink", "splitsy"]}],
+      "skills": [
+        {"label": "Languages", "items": "TypeScript, JavaScript, HTML, CSS"},
+        {"label": "Frameworks", "items": "React, Next.js, Vite, Tailwind CSS"},
+        {"label": "Practices", "items": "Accessibility, Performance Budgets, Responsive Design"},
+        {"label": "Tools", "items": "Figma, Lighthouse, Git"}
+      ]
+    },
+    "backend": {
+      "key": "backend",
+      "label": "Backend",
+      "title_line": "Backend Developer · B.Tech Computer Science, 2027",
+      "summary": "Final-year CS student who builds backends that hold up under load: an image API processing 60 images a second, booking logic that cannot double-book, and a settlement algorithm that minimises payments.",
+      "left_sections": [{"heading": "Projects", "item_ids": ["pixelforge", "tutorlink", "splitsy"]}],
+      "skills": [
+        {"label": "Languages", "items": "Python, TypeScript, SQL"},
+        {"label": "Backend", "items": "FastAPI, Node.js, Express, Celery, REST APIs"},
+        {"label": "Data", "items": "PostgreSQL, Redis, MongoDB, S3-compatible Storage"},
+        {"label": "DevOps", "items": "Docker, GitHub Actions, AWS"}
+      ]
+    }
+  }
+}

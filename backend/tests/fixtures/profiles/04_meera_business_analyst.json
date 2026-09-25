@@ -1,0 +1,118 @@
+{
+  "_comment": "Synthetic, fictional. Non-engineering field (BBA). Experience-first, no stack lines, two tracks that reorder the same items.",
+  "contact": {
+    "name": "Meera Iyer",
+    "location": "Bengaluru, Karnataka, India",
+    "phone": "+91 90000 00004",
+    "email": "meera.iyer@example.com",
+    "social": [
+      {"text": "linkedin.com/in/meera-iyer-example", "url": "https://linkedin.com/in/meera-iyer-example"}
+    ]
+  },
+  "facts": [
+    {"id": "f1", "kind": "role", "text": "Business Analyst Intern at FinFlow Technologies, Jan to Apr 2026", "confirmed": true},
+    {"id": "f2", "kind": "metric", "text": "Mapped the merchant onboarding process and found 3 duplicate document checks; removing them cut onboarding from 9 to 6 working days", "confirmed": true},
+    {"id": "f3", "kind": "role", "text": "Wrote requirement documents for 4 dashboard features that the engineering team built", "confirmed": true},
+    {"id": "f4", "kind": "metric", "text": "Analysed 18 months of support tickets in SQL; 41% were about payout delays, which became the next quarter's priority", "confirmed": true},
+    {"id": "f5", "kind": "role", "text": "Ran weekly metrics reviews with the operations lead using a Google Sheets tracker", "confirmed": true},
+    {"id": "f6", "kind": "role", "text": "Operations Volunteer at Akshara Learning Trust, Jun to Aug 2025", "confirmed": true},
+    {"id": "f7", "kind": "metric", "text": "Rebuilt the book-lending register as a shared sheet covering 12 village libraries and about 2,400 books", "confirmed": true},
+    {"id": "f8", "kind": "metric", "text": "Coordinated a donation drive that collected 850 books", "confirmed": true},
+    {"id": "f9", "kind": "project", "text": "Pricing study for a D2C snack brand: survey of 312 respondents", "confirmed": true},
+    {"id": "f10", "kind": "project", "text": "Pricing study used Van Westendorp price-sensitivity analysis to recommend a Rs 40 to 45 price band", "confirmed": true},
+    {"id": "f11", "kind": "project", "text": "Presented the pricing findings to the brand's founders", "confirmed": true},
+    {"id": "f12", "kind": "award", "text": "Google Project Management Certificate", "confirmed": true},
+    {"id": "f13", "kind": "award", "text": "Microsoft Power BI Data Analyst Associate (PL-300)", "confirmed": true},
+    {"id": "f14", "kind": "award", "text": "Winner, inter-college business case competition of 35 teams, 2025", "confirmed": true},
+    {"id": "f15", "kind": "role", "text": "Finance Secretary, Student Council, 2024 to 2025; managed a Rs 3 lakh events budget", "confirmed": true},
+    {"id": "f16", "kind": "role", "text": "Placement Coordinator, 2025 to 2026; scheduled interviews for 22 visiting companies", "confirmed": true}
+  ],
+  "items": {
+    "finflow_intern": {
+      "id": "finflow_intern",
+      "kind": "experience",
+      "name": "Business Analyst Intern",
+      "tagline": "FinFlow Technologies",
+      "period": "Jan 2026 – Apr 2026",
+      "bullets": [
+        {"id": "ff.b1", "text": "Mapped the merchant onboarding process end to end and removed three duplicate document checks, cutting onboarding from nine to six working days.", "fact_ids": ["f1", "f2"]},
+        {"id": "ff.b2", "text": "Analysed 18 months of support tickets in SQL and showed 41% concerned payout delays, which became the next quarter's top priority.", "fact_ids": ["f4"]},
+        {"id": "ff.b3", "text": "Wrote requirement documents for four merchant dashboard features, each with acceptance criteria the engineering team built and tested against.", "fact_ids": ["f3"]},
+        {"id": "ff.b4", "text": "Ran weekly metrics reviews with the operations lead from a shared tracker, flagging onboarding cases stuck for more than three days.", "fact_ids": ["f5"]}
+      ]
+    },
+    "ngo_ops": {
+      "id": "ngo_ops",
+      "kind": "experience",
+      "name": "Operations Volunteer",
+      "tagline": "Akshara Learning Trust",
+      "period": "Jun 2025 – Aug 2025",
+      "bullets": [
+        {"id": "ngo.b1", "text": "Rebuilt the paper book-lending register as a shared sheet covering 12 village libraries and about 2,400 books, so lost books became traceable.", "fact_ids": ["f6", "f7"]},
+        {"id": "ngo.b2", "text": "Coordinated a donation drive across three colleges that collected 850 books for the libraries with the thinnest shelves.", "fact_ids": ["f8"]}
+      ]
+    },
+    "pricing_study": {
+      "id": "pricing_study",
+      "name": "Snack Brand Pricing Study",
+      "tagline": "Consumer Survey & Analysis",
+      "period": "Oct 2025 – Dec 2025",
+      "stack": "Google Forms, Excel, Power BI",
+      "stack_label": "Tools",
+      "bullets": [
+        {"id": "ps.b1", "text": "Surveyed 312 consumers for a D2C snack brand unsure how to price a new product line against established supermarket brands.", "fact_ids": ["f9"]},
+        {"id": "ps.b2", "text": "Applied Van Westendorp price-sensitivity analysis to recommend a Rs 40 to 45 price band, and presented the findings to the founders.", "fact_ids": ["f10", "f11"]}
+      ]
+    }
+  },
+  "education": [
+    {
+      "institution": "Cauvery College of Commerce",
+      "degree": "BBA, Business Analytics",
+      "meta": "Bengaluru, Karnataka · Jun 2023 – May 2026",
+      "result": "CGPA: 8.6 / 10"
+    }
+  ],
+  "sections": [
+    {"id": "certs", "heading": "Awards & Certifications", "style": "list", "entries": [
+      {"id": "c1", "text": "Winner, business case competition of 35 teams — 2025", "fact_ids": ["f14"]},
+      {"id": "c2", "text": "Power BI Data Analyst Associate (PL-300) — Microsoft", "tracks": ["analyst"], "fact_ids": ["f13"]},
+      {"id": "c3", "text": "Project Management Certificate — Google", "tracks": ["ops"], "fact_ids": ["f12"]}
+    ]},
+    {"id": "roles", "heading": "Positions of Responsibility", "style": "detail", "entries": [
+      {"id": "r1", "lead": "Finance Secretary, Student Council (2024 – 2025)", "text": " — managed a Rs 3 lakh events budget.", "fact_ids": ["f15"]},
+      {"id": "r2", "lead": "Placement Coordinator (2025 – 2026)", "text": " — scheduled interviews for 22 visiting companies.", "fact_ids": ["f16"]}
+    ]}
+  ],
+  "tracks": {
+    "analyst": {
+      "key": "analyst",
+      "label": "Business Analyst",
+      "title_line": "Business Analyst · BBA Business Analytics, 2026",
+      "summary": "Business analytics graduate who finds where a process loses time or money and shows it with data: a merchant onboarding cut from nine to six days, a ticket analysis that set a quarter's priorities, a pricing band backed by 312 survey responses.",
+      "left_sections": [
+        {"heading": "Experience", "item_ids": ["finflow_intern", "ngo_ops"]},
+        {"heading": "Projects", "item_ids": ["pricing_study"]}
+      ],
+      "skills": [
+        {"label": "Analysis", "items": "SQL, Excel (pivot tables, XLOOKUP), Power BI, Google Sheets"},
+        {"label": "Business", "items": "Process Mapping, Requirement Documents, Market Research, Pricing Analysis"},
+        {"label": "Tools", "items": "Jira, Notion, Google Forms"}
+      ]
+    },
+    "ops": {
+      "key": "ops",
+      "label": "Operations",
+      "title_line": "Operations Associate · BBA Business Analytics, 2026",
+      "summary": "Business graduate who makes operations run on clear records and short feedback loops: a lending register for 12 village libraries, weekly reviews that caught stuck onboarding cases, a student budget of Rs 3 lakh managed to the rupee.",
+      "left_sections": [
+        {"heading": "Experience", "item_ids": ["finflow_intern", "ngo_ops"]}
+      ],
+      "skills": [
+        {"label": "Operations", "items": "Process Mapping, Vendor Coordination, Event Logistics, Budget Tracking"},
+        {"label": "Analysis", "items": "Excel, Google Sheets, SQL, Power BI"},
+        {"label": "Tools", "items": "Jira, Notion, Trello"}
+      ]
+    }
+  }
+}

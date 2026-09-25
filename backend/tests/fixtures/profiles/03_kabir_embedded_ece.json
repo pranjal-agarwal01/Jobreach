@@ -1,0 +1,103 @@
+{
+  "_comment": "Synthetic, fictional. Non-CS engineering field (electronics). No phone number, one social link, 'Tools' instead of 'Stack'.",
+  "contact": {
+    "name": "Kabir Singh",
+    "location": "Jaipur, Rajasthan, India",
+    "email": "kabir.singh@example.com",
+    "social": [
+      {"text": "github.com/kabir-singh-example", "url": "https://github.com/kabir-singh-example"}
+    ]
+  },
+  "facts": [
+    {"id": "f1", "kind": "project", "text": "Built a single-phase smart energy meter on STM32 that reports household consumption per appliance circuit", "confirmed": true},
+    {"id": "f2", "kind": "metric", "text": "Energy meter within 1.5% of a calibrated reference meter across 5 test loads", "confirmed": true},
+    {"id": "f3", "kind": "project", "text": "Energy meter publishes readings over MQTT every 10 seconds through an ESP32 Wi-Fi bridge", "confirmed": true},
+    {"id": "f4", "kind": "project", "text": "Energy meter firmware runs on FreeRTOS with separate sampling and communication tasks", "confirmed": true},
+    {"id": "f5", "kind": "project", "text": "Built LoRa soil-moisture sensor nodes for a 2-acre farm plot run by a relative", "confirmed": true},
+    {"id": "f6", "kind": "metric", "text": "LoRa nodes reached 1.2 km line of sight; battery life about 9 months on two AA cells using deep sleep", "confirmed": true},
+    {"id": "f7", "kind": "project", "text": "Designed the LoRa node PCB in KiCad, two revisions", "confirmed": true},
+    {"id": "f8", "kind": "metric", "text": "Irrigation schedule based on the sensors cut pump running time by about 30% over one season", "confirmed": true},
+    {"id": "f9", "kind": "project", "text": "Built a line-following robot with a PID controller for the college robotics contest", "confirmed": true},
+    {"id": "f10", "kind": "metric", "text": "Line follower finished the contest track in 14.2 seconds, 3rd of 42 teams", "confirmed": true},
+    {"id": "f11", "kind": "project", "text": "Tuned the PID gains by logging sensor error over UART and plotting it", "confirmed": true},
+    {"id": "f12", "kind": "award", "text": "3rd of 42 teams, college line-follower contest, 2025", "confirmed": true},
+    {"id": "f13", "kind": "award", "text": "NPTEL Embedded Systems Design, Elite certificate", "confirmed": true},
+    {"id": "f14", "kind": "role", "text": "Hardware lead, Robotics Society, 2025 to 2026; ran soldering and PCB workshops", "confirmed": true}
+  ],
+  "items": {
+    "smartmeter": {
+      "id": "smartmeter",
+      "name": "WattWise",
+      "tagline": "Smart Energy Meter",
+      "links": [{"text": "GitHub", "url": "https://github.com/kabir-singh-example/wattwise"}],
+      "period": "Jan 2026 – May 2026",
+      "stack": "STM32, ESP32, FreeRTOS, C, MQTT, KiCad",
+      "stack_label": "Tools",
+      "bullets": [
+        {"id": "sm.b1", "text": "Built a single-phase energy meter that reports consumption per appliance circuit, because a monthly bill cannot show which appliance wastes power.", "fact_ids": ["f1"]},
+        {"id": "sm.b2", "text": "Calibrated current and voltage sensing to within 1.5% of a reference meter across five test loads, from phone chargers to a water heater.", "fact_ids": ["f2"]},
+        {"id": "sm.b3", "text": "Published readings over MQTT every ten seconds through an ESP32 Wi-Fi bridge, keeping the metering MCU free of network code.", "fact_ids": ["f3"]},
+        {"id": "sm.b4", "text": "Split the firmware into FreeRTOS sampling and communication tasks so a slow network never delays a measurement window.", "fact_ids": ["f4"]}
+      ]
+    },
+    "lorafarm": {
+      "id": "lorafarm",
+      "name": "FieldPulse",
+      "tagline": "LoRa Soil-Moisture Network",
+      "period": "Jun 2025 – Nov 2025",
+      "stack": "Arduino, LoRa SX1276, C++, KiCad",
+      "stack_label": "Tools",
+      "bullets": [
+        {"id": "lf.b1", "text": "Built battery-powered soil-moisture nodes for a two-acre farm plot, so irrigation follows measured moisture instead of a fixed timetable.", "fact_ids": ["f5"]},
+        {"id": "lf.b2", "text": "Reached 1.2 km line-of-sight range and about nine months of battery life on two AA cells using duty-cycled deep sleep.", "fact_ids": ["f6"]},
+        {"id": "lf.b3", "text": "Designed the node PCB in KiCad over two revisions, moving the antenna feed away from the regulator to fix packet loss.", "fact_ids": ["f7"]},
+        {"id": "lf.b4", "text": "Cut pump running time by about 30% over one season once irrigation was scheduled from the sensor readings.", "fact_ids": ["f8"]}
+      ]
+    },
+    "linefollower": {
+      "id": "linefollower",
+      "name": "Swift",
+      "tagline": "PID Line-Following Robot",
+      "period": "Aug 2024 – Oct 2024",
+      "stack": "ATmega328P, C, IR sensor array, UART",
+      "stack_label": "Tools",
+      "bullets": [
+        {"id": "lr.b1", "text": "Built a line-following robot for the college robotics contest, finishing the track in 14.2 seconds and placing third of 42 teams.", "fact_ids": ["f9", "f10"]},
+        {"id": "lr.b2", "text": "Tuned the PID gains from logged sensor error streamed over UART, removing the oscillation that threw early builds off sharp curves.", "fact_ids": ["f11"]}
+      ]
+    }
+  },
+  "education": [
+    {
+      "institution": "Aravalli Institute of Engineering",
+      "degree": "B.Tech, Electronics & Communication Engineering",
+      "meta": "Jaipur, Rajasthan · Aug 2023 – May 2027",
+      "result": "CGPA: 7.4 / 10"
+    }
+  ],
+  "sections": [
+    {"id": "awards", "heading": "Awards & Certifications", "style": "list", "entries": [
+      {"id": "aw1", "text": "3rd of 42 teams, college line-follower contest — 2025", "fact_ids": ["f12"]},
+      {"id": "aw2", "text": "Embedded Systems Design (Elite) — NPTEL", "fact_ids": ["f13"]}
+    ]},
+    {"id": "roles", "heading": "Other Roles & Responsibilities", "style": "detail", "entries": [
+      {"id": "r1", "lead": "Hardware Lead, Robotics Society (2025 – 2026)", "text": " — ran soldering and PCB design workshops for first-year members.", "fact_ids": ["f14"]}
+    ]}
+  ],
+  "tracks": {
+    "embedded": {
+      "key": "embedded",
+      "label": "Embedded",
+      "title_line": "Embedded Systems Engineer · B.Tech Electronics & Communication, 2027",
+      "summary": "Final-year ECE student who builds working hardware end to end: schematic and PCB, firmware on bare metal or FreeRTOS, and the measurements that show it works, from a meter calibrated to 1.5% to sensor nodes that last nine months on two AA cells.",
+      "left_sections": [{"heading": "Projects", "item_ids": ["smartmeter", "lorafarm", "linefollower"]}],
+      "skills": [
+        {"label": "Languages", "items": "C, C++, Python, Verilog"},
+        {"label": "Microcontrollers", "items": "STM32, ESP32, ATmega328P, Arduino"},
+        {"label": "Protocols", "items": "UART, SPI, I2C, CAN, LoRa, MQTT"},
+        {"label": "Tools", "items": "KiCad, Keil, PlatformIO, Oscilloscope, Logic Analyzer"},
+        {"label": "Other", "items": "FreeRTOS, Low-power Design, Soldering, PCB Bring-up"}
+      ]
+    }
+  }
+}

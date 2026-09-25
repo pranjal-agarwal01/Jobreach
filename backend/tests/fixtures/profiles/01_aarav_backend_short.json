@@ -1,0 +1,82 @@
+{
+  "_comment": "Synthetic, fictional. Short content: one track, two projects. Should calibrate to the scale ceiling.",
+  "contact": {
+    "name": "Aarav Mehta",
+    "location": "Pune, Maharashtra, India",
+    "phone": "+91 90000 00001",
+    "email": "aarav.mehta@example.com",
+    "social": [
+      {"text": "linkedin.com/in/aarav-mehta-example", "url": "https://linkedin.com/in/aarav-mehta-example"},
+      {"text": "github.com/aarav-mehta-example", "url": "https://github.com/aarav-mehta-example"}
+    ]
+  },
+  "facts": [
+    {"id": "f1", "kind": "project", "text": "Built QueueKit, a Postgres-backed job queue, because the college fest app lost registration emails when its mail provider timed out", "confirmed": true},
+    {"id": "f2", "kind": "metric", "text": "QueueKit sustained 300 jobs per second with four workers in a local load test, using SKIP LOCKED row claiming", "confirmed": true},
+    {"id": "f3", "kind": "metric", "text": "Lost fest registration emails fell from about 40 to zero in the 2026 registration week after retries and a dead-letter table", "confirmed": true},
+    {"id": "f4", "kind": "project", "text": "Built CampusBites, a canteen pre-order API that replaced paper tokens at the hostel canteen", "confirmed": true},
+    {"id": "f5", "kind": "metric", "text": "CampusBites served 1,200 orders in its first month with p95 response under 120 ms", "confirmed": true},
+    {"id": "f6", "kind": "project", "text": "CampusBites has 35 integration tests run on every push in GitHub Actions", "confirmed": true},
+    {"id": "f7", "kind": "award", "text": "Finalist, inter-college hackathon of 120 teams, 2025", "confirmed": true},
+    {"id": "f8", "kind": "role", "text": "Web Team Lead, Coding Club, Aug 2024 to May 2025; ran weekly backend workshops for 40 juniors", "confirmed": true}
+  ],
+  "items": {
+    "queuekit": {
+      "id": "queuekit",
+      "name": "QueueKit",
+      "tagline": "Lightweight Job Queue",
+      "links": [{"text": "GitHub", "url": "https://github.com/aarav-mehta-example/queuekit"}],
+      "period": "Jan 2026 – Apr 2026",
+      "stack": "Go, PostgreSQL, Docker, GitHub Actions",
+      "bullets": [
+        {"id": "queuekit.b1", "text": "Built a Postgres-backed job queue for a college fest app that lost registration emails whenever its mail provider timed out during peak signups.", "fact_ids": ["f1"]},
+        {"id": "queuekit.b2", "text": "Used SKIP LOCKED row claiming so four workers process jobs without double delivery, sustaining 300 jobs per second in a local load test.", "fact_ids": ["f2"]},
+        {"id": "queuekit.b3", "text": "Added exponential retry with a dead-letter table, cutting lost emails in the 2026 fest registration week from about 40 to zero.", "fact_ids": ["f3"]}
+      ]
+    },
+    "campusbites": {
+      "id": "campusbites",
+      "name": "CampusBites",
+      "tagline": "Canteen Pre-order API",
+      "links": [{"text": "GitHub", "url": "https://github.com/aarav-mehta-example/campusbites"}],
+      "period": "Aug 2025 – Nov 2025",
+      "stack": "Node.js, Express, MongoDB, Redis",
+      "bullets": [
+        {"id": "campusbites.b1", "text": "Replaced the paper token system at the hostel canteen with a pre-order API, so students stop queueing through the lunch rush.", "fact_ids": ["f4"]},
+        {"id": "campusbites.b2", "text": "Cached the daily menu in Redis and served 1,200 orders in the first month with p95 response times under 120 ms.", "fact_ids": ["f5"]},
+        {"id": "campusbites.b3", "text": "Wrote 35 integration tests covering ordering, cancellation and stock limits, running on every push through GitHub Actions.", "fact_ids": ["f6"]}
+      ]
+    }
+  },
+  "education": [
+    {
+      "institution": "Deccan Institute of Technology",
+      "degree": "B.Tech, Information Technology",
+      "meta": "Pune, Maharashtra · Aug 2023 – May 2027",
+      "result": "CGPA: 8.1 / 10"
+    }
+  ],
+  "sections": [
+    {"id": "awards", "heading": "Awards & Certifications", "style": "list", "entries": [
+      {"id": "aw1", "text": "Finalist, inter-college hackathon of 120 teams — 2025", "fact_ids": ["f7"]}
+    ]},
+    {"id": "roles", "heading": "Other Roles & Responsibilities", "style": "detail", "entries": [
+      {"id": "r1", "lead": "Web Team Lead, Coding Club (Aug 2024 – May 2025)", "text": " — ran weekly backend workshops for 40 juniors.", "fact_ids": ["f8"]}
+    ]}
+  ],
+  "tracks": {
+    "sde": {
+      "key": "sde",
+      "label": "SDE",
+      "title_line": "Backend Developer · B.Tech Information Technology, 2027",
+      "summary": "Final-year IT student who builds backend services that keep working under load: a job queue that stopped a fest app from losing emails, and a canteen ordering API used daily in the hostel.",
+      "left_sections": [{"heading": "Projects", "item_ids": ["queuekit", "campusbites"]}],
+      "skills": [
+        {"label": "Languages", "items": "Go, JavaScript, Python, SQL"},
+        {"label": "Backend", "items": "Node.js, Express, REST APIs, Redis"},
+        {"label": "Databases", "items": "PostgreSQL, MongoDB"},
+        {"label": "Tools", "items": "Docker, Git, GitHub Actions, Linux"}
+      ]
+    }
+  }
+}
