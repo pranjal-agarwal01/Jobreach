@@ -8,7 +8,8 @@ usage and cost logged per step (spec section 10).
 - Effort per step: low for extraction and screening, medium for ranking and selection,
   medium or high for drafting.
 - Server-side fallbacks ("default") so a safety-classifier decline is retried on the
-  recommended fallback model instead of failing the lead.
+  recommended fallback model instead of failing the lead. On Microsoft Foundry, which has
+  no server-side fallbacks, the SDK's client-side middleware does the same job.
 - stop_reason is checked before the content is read.
 """
 from __future__ import annotations
@@ -58,8 +59,20 @@ _client: Optional[anthropic.Anthropic] = None
 def client() -> anthropic.Anthropic:
     global _client
     if _client is None:
-        _client = anthropic.Anthropic()   # ANTHROPIC_API_KEY from the environment
+        if settings.provider == "foundry":
+            # Foundry: no server-side fallbacks, so register the SDK's client-side middleware.
+            kw = {}
+            if settings.fallback_model:
+                kw["middleware"] = [anthropic.BetaRefusalFallbackMiddleware([{"model": settings.fallback_model}])]
+            _client = anthropic.AnthropicFoundry(**kw)   # ANTHROPIC_FOUNDRY_RESOURCE / _API_KEY
+        else:
+            _client = anthropic.Anthropic()              # ANTHROPIC_API_KEY
     return _client
+
+
+def _fallback_args() -> dict:
+    """Server-side fallbacks exist on the Claude API only (Foundry uses the middleware)."""
+    return {"betas": [FALLBACK_BETA], "fallbacks": "default"} if settings.provider != "foundry" else {}
 
 
 def set_client(c) -> None:
@@ -109,8 +122,7 @@ def structured(step: str, output_format: type[T], *, stable: Sequence[str], vola
             messages=[{"role": "user", "content": volatile}],
             output_format=output_format,
             output_config={"effort": effort},
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
+            **_fallback_args(),
         )
     except anthropic.APIStatusError as e:
         raise LLMError("{}: API error {}".format(step, e.status_code)) from e

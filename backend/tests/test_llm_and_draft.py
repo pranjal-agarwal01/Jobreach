@@ -52,6 +52,16 @@ def test_request_shape_caches_stable_prefix_and_opts_into_fallbacks(fake):
     assert kw["model"] == llm.settings.model
 
 
+def test_foundry_omits_server_side_fallbacks(fake, monkeypatch):
+    """Foundry has no server-side fallbacks (the client-side middleware covers it); sending
+    the parameter or its beta header there would be rejected."""
+    from dataclasses import replace
+    monkeypatch.setattr(llm, "settings", replace(llm.settings, provider="foundry"))
+    c = fake([good_draft()])
+    llm.structured("t", EmailDraft, stable=["R"], volatile="x")
+    assert "fallbacks" not in c.calls[0] and "betas" not in c.calls[0]
+
+
 def test_refusal_and_truncation_raise_before_content_is_read(fake):
     fake(["refusal"])
     with pytest.raises(llm.LLMRefusal, match="cyber"):
