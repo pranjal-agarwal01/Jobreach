@@ -16,13 +16,16 @@ infer an address. If none is written, there is no email route.
 person who works at the hiring company), "company_page" (the company's own account), \
 "recruiter" (a staffing firm or third-party recruiter posting for a client), "aggregator" \
 (roundups, reposts, "comment for link", job-alert pages), else "unknown".
-- stipend.stated: "figure" when an amount is given, "unpaid" when unpaid (including "paid \
-after an unpaid period"; put that period in unpaid_period_months), "performance_based" when \
-pay depends on performance only, else "unstated". Give min and max in the stated currency \
+- stipend.stated: "figure" only when an amount is written as a number, "unpaid" when unpaid \
+(including "paid after an unpaid period"; put that period in unpaid_period_months), \
+"performance_based" when pay depends on performance only, else "unstated" ("competitive \
+stipend" with no number is "unstated"). Give min and max in the stated currency \
 units with the period they refer to: "Rs 10k-15k per month" is 10000-15000 per month; \
 "6-8 LPA" is 600000-800000 per year.
-- remote: true for remote or work-from-home, false for onsite, null if not stated. hybrid \
-true only if hybrid is stated. country: the country of the role, or of the company if the \
+- remote: true for remote or work-from-home, false for onsite. When the post names a city or \
+an office but states no work mode, the role is onsite: false. null only when neither a work \
+mode nor a city is given (a country alone is not an office). hybrid true only if hybrid is \
+stated. country: the country of the role, or of the company if the \
 role's place is not given. When only a city or region is named, give the country it is in \
 ("Pune" is India, "Lahore" is Pakistan); null only when no place is named at all.
 - employment_type: internship, full_time, both, or unknown.
@@ -39,8 +42,9 @@ across engineering, HR and marketing, "Don't compromise on your career". Empty i
 similar), large_enterprise, it_services_major (TCS, Infosys, Wipro, Accenture, Cognizant and \
 similar), staffing, training, or unknown.
 - apply_routes: email (value = the address), form (value = link), ats (value = link), \
-linkedin_apply, dm_only ("DM me"), whatsapp, comment ("comment interested"). List each route \
-the text offers.
+linkedin_apply (only when the post says to apply through a LinkedIn job listing), dm_only \
+("DM me"), whatsapp, comment ("comment interested", "apply or tag them below"). List each \
+route the text offers.
 - shared_by_third_party: true when the poster is resharing someone else's opening."""
 
 COMPANY = """You summarise what a company actually does from its own homepage text, to check \

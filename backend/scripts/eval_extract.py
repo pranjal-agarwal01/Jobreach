@@ -32,7 +32,7 @@ ROOT = Path(__file__).resolve().parents[2] / "reference" / "eval"
 FIELDS = {
     "stipend_stated": "figure | unpaid | unstated | performance_based",
     "stipend_monthly_max": "number per month, or null (only when stated)",
-    "remote": "true | false | null (not stated)",
+    "remote": "true | false (onsite, or a city named with no work mode) | null (neither stated)",
     "onsite_city": "city, or null",
     "country": "country, or null",
     "batch_years": "list of years, [] if none",
