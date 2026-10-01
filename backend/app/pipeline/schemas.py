@@ -211,3 +211,18 @@ class ProposedTrack(BaseModel):
 class TrackProposals(BaseModel):
     tracks: list[ProposedTrack]
     rationale: str
+
+
+class RoleOptionP(BaseModel):
+    field: Discipline
+    role: str
+    fit: Literal["strong", "good", "stretch"]
+    why: str
+    evidence_item_keys: list[str]
+    gaps: list[str]
+    desired: bool
+
+
+class RoleAudit(BaseModel):
+    options: list[RoleOptionP]
+    summary: str

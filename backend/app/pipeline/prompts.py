@@ -22,7 +22,9 @@ pay depends on performance only, else "unstated". Give min and max in the stated
 units with the period they refer to: "Rs 10k-15k per month" is 10000-15000 per month; \
 "6-8 LPA" is 600000-800000 per year.
 - remote: true for remote or work-from-home, false for onsite, null if not stated. hybrid \
-true only if hybrid is stated. country: the country of the role or company when stated.
+true only if hybrid is stated. country: the country of the role, or of the company if the \
+role's place is not given. When only a city or region is named, give the country it is in \
+("Pune" is India, "Lahore" is Pakistan); null only when no place is named at all.
 - employment_type: internship, full_time, both, or unknown.
 - discipline: the main kind of work, using the closest value.
 - role_titles: every distinct role the post advertises. title: the main one.
@@ -145,10 +147,33 @@ the work solved; 21 to 29 words; surface every real number the facts contain.
 - fact_ids: the ids of every fact the bullet uses. Write bullets only for items that need \
 them (the items listed as needing bullets)."""
 
+ROLES = """You audit a student's confirmed record (items, bullets, skills, education, facts) \
+and list the entry-level roles they can credibly apply for now, so they can choose which \
+openings to receive.
+
+For each option:
+- field: the discipline value closest to the work.
+- role: a job title the way Indian startups post it, for example "Backend Developer Intern", \
+"ML Engineer Intern", "Data Analyst Intern", "Business Analyst Intern". Use "Intern" unless \
+the student only wants full-time roles.
+- fit: "strong" when two or more confirmed items show this work directly; "good" when one \
+item does; "stretch" when no item does (skills or coursework alone).
+- why: one sentence naming the items that show it. No numbers that are not in the record.
+- evidence_item_keys: the keys of the confirmed items that show it. Empty for a stretch with \
+no item behind it.
+- gaps: for good and stretch fits, what an interviewer would find missing, in a few words each.
+- desired: true when the student asked for this role or field at sign-up.
+
+Include every role and field the student asked for, with an honest fit even when it is a \
+stretch. Add the other roles their evidence supports. Give 3 to 8 options, strongest first, \
+and no two options for the same job under different names. Never invent experience.
+summary: two sentences on where the student is strongest, in plain words."""
+
 TRACKS = """You propose 1 to 4 resume tracks for a student. A track is one resume variant \
 aimed at a family of roles (for example SDE, ML, AI engineer, frontend, data analyst, \
 business analyst). Propose only tracks their confirmed evidence supports; one strong track \
-beats three thin ones.
+beats three thin ones. When the preferences list target_roles (the roles the student chose), \
+cover those roles: one track per family of closely related roles.
 
 For each track:
 - key: short lowercase slug. label: short name.

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import secrets
 from datetime import datetime
 from typing import Literal, Optional
 
@@ -12,12 +13,14 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 
 from ..auth import User, current_user
-from ..db import audit, user_tx
+from ..config import settings
+from ..db import audit, system_tx, user_tx
+from ..pipeline import resume as resume_mod
 from ..pipeline.draft import gmail_compose_url
 from ..worker import enqueue
 
 router = APIRouter()
-DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+PDF = "application/pdf"
 
 
 # ------------------------------------------------------------------ tracks
@@ -206,11 +209,17 @@ def delete_lead(job_id: str, user: User = Depends(current_user)):
 
 APP_SELECT = """
   select a.*, j.extracted->>'company_name' as company_name, j.extracted->>'poster_name' as poster_name,
-         j.source_ref, c.domain, c.verification, c.business_summary,
-         (select d.lint_ok from drafts d where d.application_id = a.id order by d.version desc limit 1) as lint_ok
+         j.source_ref, j.source, c.domain, c.verification, c.business_summary,
+         (select d.lint_ok from drafts d where d.application_id = a.id order by d.version desc limit 1) as lint_ok,
+         rs.resume_id, rs.resume_filename
   from applications a
   join jobs j on j.id = a.job_id
   left join companies c on c.id = a.company_id
+  left join lateral (
+    select r.id as resume_id,
+           coalesce(f.pdf_filename, regexp_replace(f.filename, '\\.docx$', '.pdf')) as resume_filename
+    from resumes r join resume_files f on f.id = r.file_id
+    where r.application_id = a.id order by r.created_at desc limit 1) rs on true
 """
 
 
@@ -238,9 +247,13 @@ def application(app_id: str, user: User = Depends(current_user)):
             raise HTTPException(404, "not found")
         d = conn.execute("select * from drafts where application_id = %s order by version desc limit 1",
                          (app_id,)).fetchone()
-        r = conn.execute("""select id, track_key, scale, pages_verified, renderer, ats_score, jd_match, dropped_ids,
-                                   item_keys, created_at from resumes where application_id = %s
-                            order by created_at desc limit 1""", (app_id,)).fetchone()
+        r = conn.execute("""select r.id, r.track_key, r.scale, r.pages_verified, r.renderer, r.ats_score, r.jd_match,
+                                   r.dropped_ids, r.item_keys, r.created_at,
+                                   coalesce(f.pdf_filename, regexp_replace(f.filename, '\\.docx$', '.pdf')) as filename
+                            from resumes r join resume_files f on f.id = r.file_id where r.application_id = %s
+                            order by r.created_at desc limit 1""", (app_id,)).fetchone()
+        if r:
+            r["link"] = _active_link(conn, r["id"])
         events = conn.execute("select * from events where application_id = %s order by occurred_at desc",
                               (app_id,)).fetchall()
         job = conn.execute("select raw_text, extracted from jobs where id = %s", (a["job_id"],)).fetchone()
@@ -302,15 +315,90 @@ def add_event(app_id: str, body: EventIn, user: User = Depends(current_user)):
     return {"ok": True}
 
 
+# ------------------------------------------------------------------ resumes: PDF, download, share link
+
+def _resume_pdf(conn, resume_id: str) -> Optional[tuple[bytes, str]]:
+    """The PDF the page check measured. Files from before PDFs were kept are rendered once
+    and stored."""
+    r = conn.execute("""select f.id, f.filename, f.content, f.pdf, f.pdf_filename from resumes r
+                        join resume_files f on f.id = r.file_id where r.id = %s""", (resume_id,)).fetchone()
+    if r is None:
+        return None
+    name = r["pdf_filename"] or re.sub(r"\.docx$", "", r["filename"]) + ".pdf"
+    if r["pdf"] is None:
+        pdf = resume_mod.pdf_from_docx(bytes(r["content"]))
+        conn.execute("update resume_files set pdf = %s, pdf_filename = %s where id = %s", (pdf, name, r["id"]))
+        return pdf, name
+    return bytes(r["pdf"]), name
+
+
+def _pdf_response(pdf: bytes, name: str, download: bool) -> Response:
+    return Response(pdf, media_type=PDF, headers={
+        "Content-Disposition": '{}; filename="{}"'.format("attachment" if download else "inline", name),
+        "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex", "Referrer-Policy": "no-referrer"})
+
+
+@router.get("/resumes/{resume_id}/pdf")
+def resume_pdf(resume_id: str, download: bool = False, user: User = Depends(current_user)):
+    with user_tx(user.id) as conn:
+        got = _resume_pdf(conn, resume_id)
+    if got is None:
+        raise HTTPException(404, "not found")
+    return _pdf_response(*got, download=download)
+
+
 @router.get("/resumes/{resume_id}/download")
 def download(resume_id: str, user: User = Depends(current_user)):
+    return resume_pdf(resume_id, download=True, user=user)
+
+
+def _link_url(token: str) -> str:
+    return "{}/r/{}".format(settings.public_base_url.rstrip("/"), token)
+
+
+def _active_link(conn, resume_id) -> Optional[dict]:
+    row = conn.execute("""select token, opens, last_opened_at, created_at from resume_links
+                          where resume_id = %s and revoked_at is null order by created_at desc limit 1""",
+                       (resume_id,)).fetchone()
+    return {**row, "url": _link_url(row["token"])} if row else None
+
+
+@router.post("/resumes/{resume_id}/link")
+def create_link(resume_id: str, user: User = Depends(current_user)):
+    """A share link to put in an email instead of attaching the file. Unguessable, revocable,
+    and it counts opens (a number only: no addresses or devices are stored)."""
     with user_tx(user.id) as conn:
-        r = conn.execute("""select f.filename, f.content from resumes r join resume_files f on f.id = r.file_id
-                            where r.id = %s""", (resume_id,)).fetchone()
-    if r is None:
+        if conn.execute("select 1 from resumes where id = %s", (resume_id,)).fetchone() is None:
+            raise HTTPException(404, "not found")
+        link = _active_link(conn, resume_id)
+        if link is None:
+            conn.execute("insert into resume_links (token, user_id, resume_id) values (%s, %s, %s)",
+                         (secrets.token_urlsafe(12), user.id, resume_id))
+            link = _active_link(conn, resume_id)
+    audit(user.id, "resume_link_created", {"resume": resume_id})
+    return link
+
+
+@router.delete("/resumes/{resume_id}/link")
+def revoke_link(resume_id: str, user: User = Depends(current_user)):
+    with user_tx(user.id) as conn:
+        conn.execute("update resume_links set revoked_at = now() where resume_id = %s and revoked_at is null",
+                     (resume_id,))
+    return {"ok": True}
+
+
+@router.get("/r/{token}", include_in_schema=False)
+def shared_resume(token: str):
+    """Public: whoever has the link sees the PDF, until the student revokes it."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", token):
         raise HTTPException(404, "not found")
-    return Response(bytes(r["content"]), media_type=DOCX,
-                    headers={"Content-Disposition": 'attachment; filename="{}"'.format(r["filename"])})
+    with system_tx() as conn:
+        link = conn.execute("""update resume_links set opens = opens + 1, last_opened_at = now()
+                               where token = %s and revoked_at is null returning resume_id""", (token,)).fetchone()
+        got = _resume_pdf(conn, link["resume_id"]) if link else None
+    if got is None:
+        raise HTTPException(404, "This resume link does not exist or was turned off by its owner")
+    return _pdf_response(*got, download=False)
 
 
 # ------------------------------------------------------------------ today

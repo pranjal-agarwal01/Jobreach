@@ -134,6 +134,10 @@ def test_endpoint_gets_the_v1_path():
     assert s.azure_openai_base_url == "https://myres.openai.azure.com/openai/v1/"
     s = replace(llm.settings, azure_openai_endpoint="https://myres.services.ai.azure.com/openai/v1")
     assert s.azure_openai_base_url == "https://myres.services.ai.azure.com/openai/v1/"
+    s = replace(llm.settings, azure_openai_endpoint="https://myres.services.ai.azure.com/api/projects/proj1")
+    assert s.azure_openai_base_url == "https://myres.services.ai.azure.com/openai/v1/"
+    s = replace(llm.settings, azure_openai_endpoint=" https://myres.cognitiveservices.azure.com ")
+    assert s.azure_openai_base_url == "https://myres.cognitiveservices.azure.com/openai/v1/"
 
 
 # ------------------------------------------------------------------ cost

@@ -57,9 +57,15 @@ def reading(ex) -> dict:
     }
 
 
+COUNTRY_ALIASES = {"uae": "united arab emirates", "usa": "united states", "us": "united states",
+                   "uk": "united kingdom", "bharat": "india"}
+
+
 def same(field: str, got, want) -> bool:
     if field in ("onsite_city", "country"):
         g, w = (got or "").strip().lower(), (want or "").strip().lower()
+        if field == "country":
+            g, w = COUNTRY_ALIASES.get(g, g), COUNTRY_ALIASES.get(w, w)
         return g == w or (bool(g) and bool(w) and (g in w or w in g))
     if field == "apply_email":
         return (got or "").lower() == (want or "").lower()

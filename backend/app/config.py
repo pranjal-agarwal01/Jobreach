@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
@@ -47,6 +48,9 @@ class Settings:
     fallback_model: str = os.environ.get("CLAUDE_FALLBACK_MODEL", "").strip()
     cors_origins: list[str] = field(default_factory=lambda: _list(
         "CORS_ORIGINS", "http://localhost:3000"))
+    # Where this API is reachable from outside: resume share links point here. Until the API
+    # is deployed, links work only on this machine.
+    public_base_url: str = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").strip()
     worker_poll_seconds: float = float(os.environ.get("WORKER_POLL_SECONDS", "2"))
     # Bump whenever the consent notice changes (2026-10-01: model processor is Azure OpenAI).
     consent_version: str = "2026-10-01"
@@ -59,10 +63,11 @@ class Settings:
 
     @property
     def azure_openai_base_url(self) -> str:
-        """Accepts the endpoint as Azure shows it (https://<resource>.openai.azure.com/) and
-        adds the v1 API path."""
-        base = self.azure_openai_endpoint.rstrip("/")
-        return base + "/" if base.endswith("/openai/v1") else base + "/openai/v1/"
+        """Accepts any endpoint Azure shows for the resource (https://<resource>.openai.azure.com/,
+        .services.ai.azure.com/, .cognitiveservices.azure.com/, or a Foundry project endpoint
+        ending /api/projects/<name>). The v1 API always lives at the host's /openai/v1/."""
+        u = urlsplit(self.azure_openai_endpoint.strip())
+        return f"{u.scheme}://{u.netloc}/openai/v1/" if u.netloc else ""
 
     @property
     def jwks_url(self) -> str:

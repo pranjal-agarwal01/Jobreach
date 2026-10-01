@@ -43,7 +43,7 @@ export default function TodayPage() {
             {t.deadlines.map((d) => (
               <li key={d.id} className="flex flex-wrap items-center gap-2">
                 <Badge tone="ok">{d.type.replace("_", " ")}</Badge>
-                <Link className="font-medium hover:underline" href={`/applications/${d.application_id}`}>
+                <Link className="font-medium hover:underline" href={`/jobs/${d.application_id}`}>
                   {d.company_name ?? "Company"} · {d.role_title}
                 </Link>
                 {d.deadline_at && <span className="text-warn">due {new Date(d.deadline_at).toLocaleString()}</span>}
@@ -59,7 +59,7 @@ export default function TodayPage() {
           <ul className="divide-y divide-border">
             {t.drafts.map((a) => (
               <li key={a.id} className="flex flex-wrap items-center gap-3 py-2 text-sm">
-                <Link className="min-w-0 flex-1 font-medium hover:underline" href={`/applications/${a.id}`}>
+                <Link className="min-w-0 flex-1 font-medium hover:underline" href={`/jobs/${a.id}`}>
                   {a.company_name ?? a.domain ?? "Company"} · {a.role_title}
                 </Link>
                 <span className="text-muted">post {hoursLabel(a.age_at_draft_hours)} old</span>

@@ -22,11 +22,19 @@ export interface Preferences {
   hybrid_ok: boolean; stipend_floor: number | null; currency: string; unpaid_remote_policy: string;
   unpaid_onsite_policy: string; excluded_company_types: string[]; excluded_companies: string[];
   freshness_ceiling_hours: number; duration_flex: string; start_date: string; signature_html: string | null;
+  desired_roles: string[]; target_roles: string[]; pool_mode: "specific" | "mix";
 }
 export interface Profile {
   name: string | null; headline: string | null; location: string | null; phone: string | null;
   email: string | null; links: { text: string; url: string }[]; grad_date: string | null;
   batch_year: number | null; cgpa: number | null; onboarding_step: string; consent_version: string | null;
+  github_url: string | null; about: string | null;
+}
+
+export interface RoleOption {
+  id: Id; field: string; role: string; fit: "strong" | "good" | "stretch"; why: string;
+  evidence_item_keys: string[]; gaps: string[]; desired: boolean; selected: boolean;
+  pool_jobs: number; watched: boolean;
 }
 export interface Me {
   user: { id: Id; email: string | null }; profile: Profile; preferences: Preferences;
@@ -55,7 +63,9 @@ export interface Application {
   age_at_capture_hours: number | null; age_at_draft_hours: number | null; judgment_calls: string[];
   notes: string | null; created_at: string; user_marked_sent_at: string | null; lint_ok: boolean | null;
   domain: string | null; verification: string | null; business_summary: string | null; source_ref: string | null;
+  source: string; resume_id: Id | null; resume_filename: string | null;
 }
+export interface ResumeLink { token: string; url: string; opens: number; last_opened_at: string | null; created_at: string }
 export interface LintCheck { check: string; ok: boolean; detail: string }
 export interface Draft {
   id: Id; to_addrs: string[]; subject: string; html: string; plain: string; lint: LintCheck[];
@@ -65,6 +75,7 @@ export interface EventRow { id: Id; type: string; occurred_at: string; deadline_
 export interface AppDetail {
   application: Application; draft: Draft | null;
   resume: { id: Id; track_key: string; scale: number; pages_verified: number; renderer: string;
-            ats_score: number | null; jd_match: number | null; dropped_ids: string[] } | null;
+            ats_score: number | null; jd_match: number | null; dropped_ids: string[]; filename: string;
+            link: ResumeLink | null } | null;
   events: EventRow[]; job: { raw_text: string; extracted: Record<string, unknown> | null };
 }

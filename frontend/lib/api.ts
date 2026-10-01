@@ -42,10 +42,15 @@ export const api = {
   patch: <T>(p: string, b: unknown) => request<T>("PATCH", p, b),
   del: <T>(p: string) => request<T>("DELETE", p),
   upload: <T>(p: string, form: FormData) => request<T>("POST", p, form),
+  async blob(path: string): Promise<Blob> {
+    const res = await fetch(BASE + path, { headers: { Authorization: `Bearer ${await token()}` } });
+    if (!res.ok) throw new ApiError(res.status, "Could not load the file");
+    return res.blob();
+  },
   async download(path: string) {
     const res = await fetch(BASE + path, { headers: { Authorization: `Bearer ${await token()}` } });
     if (!res.ok) throw new ApiError(res.status, "Download failed");
-    const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "resume.docx";
+    const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "resume.pdf";
     const url = URL.createObjectURL(await res.blob());
     const a = document.createElement("a");
     a.href = url;

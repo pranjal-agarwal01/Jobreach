@@ -4,14 +4,20 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useMe } from "@/components/AppShell";
 import FactBankEditor from "@/components/FactBankEditor";
-import PreferencesForm from "@/components/PreferencesForm";
+import PreferencesForm, { Toggle } from "@/components/PreferencesForm";
+import RolesPicker from "@/components/RolesPicker";
 import TracksEditor from "@/components/TracksEditor";
 import { Badge, Button, Card, ErrorNote, Field, inputCls } from "@/components/ui";
 import { api } from "@/lib/api";
+import { FIELDS } from "@/lib/fields";
+import type { Preferences, Profile } from "@/lib/types";
 
+// The founder's flow: one sign-up form, an audit of everything given (facts, questions,
+// skills), the roles that audit supports, then preferences and the resumes for those roles.
 const STEPS = [
-  ["consent", "Consent"], ["upload", "Upload"], ["confirm", "Confirm facts"], ["interview", "Interview"],
-  ["review", "New facts"], ["evidence", "Skills check"], ["preferences", "Preferences"], ["tracks", "Tracks"],
+  ["consent", "Consent"], ["upload", "About you"], ["confirm", "Audit: facts"], ["interview", "Audit: questions"],
+  ["review", "Audit: new facts"], ["evidence", "Audit: skills"], ["roles", "Your roles"], ["preferences", "Preferences"],
+  ["tracks", "Resumes"],
 ] as const;
 type Step = (typeof STEPS)[number][0];
 
@@ -43,7 +49,7 @@ export default function Onboarding() {
         ))}
       </ol>
       {step === "consent" && <Consent version={me.consent_version} onDone={async () => { await refresh(); await go("upload"); }} />}
-      {step === "upload" && <Upload onDone={() => go("confirm")} />}
+      {step === "upload" && <Upload prefs={me.preferences} profile={me.profile} onDone={() => go("confirm")} />}
       {step === "confirm" && (
         <Stage title="Confirm your facts" next={() => go("interview")}
           intro="This is what we read from your resume. Nothing is used until you confirm it. Fix anything that is wrong or overstated.">
@@ -52,7 +58,14 @@ export default function Onboarding() {
       )}
       {step === "interview" && <Interview onDone={() => go("review")} />}
       {step === "review" && <Review onDone={() => go("evidence")} />}
-      {step === "evidence" && <Evidence onDone={() => go("preferences")} />}
+      {step === "evidence" && <Evidence onDone={() => go("roles")} />}
+      {step === "roles" && (
+        <Stage title="The roles your profile supports"
+          intro="From everything you confirmed, these are the roles you can credibly apply for, including the ones you asked for, with an honest fit. Take the mixed pool or pick roles. Openings come from the job pool; roles it does not cover yet are added to its daily collection.">
+          <RolesPicker initialMode={me.preferences.pool_mode ?? "mix"} saveLabel="Continue with these roles"
+            onSaved={async () => { await refresh(); await go("preferences"); }} />
+        </Stage>
+      )}
       {step === "preferences" && (
         <Stage title="What you want" intro="These rules decide which leads are kept, and what every email may say about you.">
           <PreferencesForm prefs={me.preferences} profile={me.profile} submitLabel="Save and continue"
@@ -111,24 +124,35 @@ function Consent({ version, onDone }: { version: string; onDone: () => void }) {
   );
 }
 
-function Upload({ onDone }: { onDone: () => void }) {
+function Upload({ prefs, profile, onDone }: { prefs: Preferences; profile: Profile; onDone: () => void }) {
   const files = useRef<HTMLInputElement>(null);
-  const [about, setAbout] = useState("");
+  const [about, setAbout] = useState(profile.about ?? "");
+  const [projects, setProjects] = useState("");
+  const [github, setGithub] = useState(profile.github_url ?? "");
   const [links, setLinks] = useState("");
+  const [fields, setFields] = useState<string[]>(prefs.role_types);
+  const [roles, setRoles] = useState(prefs.desired_roles.join(", "));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setNote(null);
     const form = new FormData();
     for (const f of Array.from(files.current?.files ?? [])) form.append("files", f);
     form.append("about", about);
+    form.append("projects", projects);
+    form.append("github", github);
     form.append("links", links);
+    form.append("fields", fields.join(","));
+    form.append("roles", roles);
     try {
-      setBusy("Reading your files…");
-      await api.upload("/onboarding/upload", form);
-      setBusy("Building your fact bank. This takes about a minute…");
+      setBusy(github.trim() ? "Reading your files and GitHub…" : "Reading your files…");
+      const r = await api.upload<{ github: { username: string | null; read: boolean } }>("/onboarding/upload", form);
+      if (r.github.username && !r.github.read) setNote("Couldn't read your public GitHub repositories right now; carrying on with the rest.");
+      setBusy("Auditing everything you gave us. This takes about a minute…");
       await api.post("/onboarding/extract");
       onDone();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
@@ -136,18 +160,48 @@ function Upload({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <Stage title="Give us your real history, once"
-      intro="Upload your current resume (PDF or DOCX). Add anything it leaves out: freelance or client work, things you deployed and who uses them, hackathons, clubs. The best evidence is often missing from students' resumes.">
-      <form onSubmit={submit} className="flex max-w-2xl flex-col gap-4">
-        <Field label="Resume files"><input ref={files} type="file" multiple accept=".pdf,.docx,.txt" className="text-sm" /></Field>
-        <Field label="About me" hint="Plain words are fine. Say what you built, for whom, and any real numbers you know.">
-          <textarea className={inputCls} rows={6} value={about} onChange={(e) => setAbout(e.target.value)} />
-        </Field>
-        <Field label="Links" hint="GitHub, portfolio, LeetCode and similar, one per line.">
-          <textarea className={inputCls} rows={3} value={links} onChange={(e) => setLinks(e.target.value)} />
-        </Field>
+    <Stage title="Tell us about you, once"
+      intro="Everything here is audited into facts you confirm, and every resume and email is built only from those. Add what your resume leaves out: freelance or client work, things you deployed and who uses them, hackathons, clubs.">
+      <form onSubmit={submit} className="flex max-w-3xl flex-col gap-4">
+        <Card title="Your work">
+          <div className="flex flex-col gap-4">
+            <Field label="All your CVs" hint="PDF, DOCX or TXT. Upload every version you have: each one may mention something the others don't.">
+              <input ref={files} type="file" multiple accept=".pdf,.docx,.txt" className="text-sm" />
+            </Field>
+            <Field label="About you" hint="Plain words are fine. What you built, for whom, and any real numbers you know.">
+              <textarea className={inputCls} rows={5} value={about} onChange={(e) => setAbout(e.target.value)} />
+            </Field>
+            <Field label="Your projects" hint="One per paragraph: what it does, the stack, who used it, a live link if there is one.">
+              <textarea className={inputCls} rows={5} value={projects} onChange={(e) => setProjects(e.target.value)} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="GitHub" hint="We read your public repositories (not forks).">
+                <input className={inputCls} placeholder="github.com/your-username" value={github} onChange={(e) => setGithub(e.target.value)} />
+              </Field>
+              <Field label="Other links" hint="Portfolio, LeetCode, Kaggle and similar, one per line.">
+                <textarea className={inputCls} rows={2} value={links} onChange={(e) => setLinks(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+        </Card>
+        <Card title="What you want">
+          <div className="flex flex-col gap-4">
+            <Field label="Fields" hint="Pick any that interest you. The audit tells you how well your work backs each one.">
+              <div className="flex flex-wrap gap-2">
+                {FIELDS.map(([k, l]) => (
+                  <Toggle key={k} on={fields.includes(k)}
+                    set={() => setFields(fields.includes(k) ? fields.filter((x) => x !== k) : [...fields, k])}>{l}</Toggle>
+                ))}
+              </div>
+            </Field>
+            <Field label="Roles you want" hint="Comma separated, for example: Backend Developer Intern, ML Engineer Intern.">
+              <input className={inputCls} value={roles} onChange={(e) => setRoles(e.target.value)} />
+            </Field>
+          </div>
+        </Card>
         <ErrorNote error={error} />
-        <Button type="submit" className="self-start" busy={!!busy}>{busy ?? "Read my resume"}</Button>
+        {note && <p className="rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">{note}</p>}
+        <Button type="submit" className="self-start" busy={!!busy}>{busy ?? "Audit my profile"}</Button>
       </form>
     </Stage>
   );

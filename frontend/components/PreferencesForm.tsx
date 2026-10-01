@@ -2,23 +2,17 @@
 
 import { FormEvent, useState } from "react";
 import { api } from "@/lib/api";
+import { FIELDS as DISCIPLINES } from "@/lib/fields";
 import type { Preferences, Profile } from "@/lib/types";
 import { Button, Card, ErrorNote, Field, inputCls } from "./ui";
 
-const DISCIPLINES: [string, string][] = [
-  ["sde", "SDE"], ["backend", "Backend"], ["fullstack", "Full-stack"], ["frontend", "Frontend"],
-  ["ai_ml", "AI / ML"], ["cv", "Computer vision"], ["data", "Data"], ["devops", "DevOps"],
-  ["mobile", "Mobile"], ["embedded", "Embedded"], ["qa", "QA"], ["design", "Design"],
-  ["product", "Product"], ["business", "Business / analyst"], ["operations", "Operations"],
-  ["marketing", "Marketing"],
-];
 const COMPANY_TYPES: [string, string][] = [
   ["big_tech", "Big tech"], ["it_services_major", "IT services majors"], ["large_enterprise", "Large enterprises"],
 ];
 
 const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
-function Toggle({ on, set, children }: { on: boolean; set: (v: boolean) => void; children: string }) {
+export function Toggle({ on, set, children }: { on: boolean; set: (v: boolean) => void; children: string }) {
   return (
     <button type="button" onClick={() => set(!on)}
       className={`rounded-full border px-3 py-1 text-xs ${on ? "border-accent bg-accent-soft text-accent" : "border-border text-muted"}`}>

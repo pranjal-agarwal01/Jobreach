@@ -17,8 +17,8 @@ export function useMe() {
 
 const NAV = [
   { href: "/today", label: "Today" },
-  { href: "/leads", label: "Leads" },
-  { href: "/applications", label: "Applications" },
+  { href: "/jobs", label: "Jobs" },
+  { href: "/leads", label: "Add leads" },
   { href: "/profile", label: "Profile" },
 ];
 

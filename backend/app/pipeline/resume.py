@@ -19,7 +19,7 @@ from resume_engine import calibrate as cal
 from resume_engine.ats_score import docx_text, score as ats_score
 from resume_engine.builder import BuildResult, build
 from resume_engine.jd_match import match_text
-from resume_engine.pages import count_pages, renderer_version
+from resume_engine.pages import render, renderer_version
 from resume_engine.schema import (
     Bullet, BuildOptions, Contact, Education, Entry, Fact, Item, LeftSection, Link, ResumeData,
     Section, SkillGroup, Track,
@@ -42,6 +42,11 @@ class Built:
     dropped: list[str] = field(default_factory=list)
     ats: Optional[float] = None
     jd_match: Optional[float] = None
+    pdf: Optional[bytes] = None      # the page-checked render; what the student sends
+
+    @property
+    def pdf_filename(self) -> str:
+        return self.filename.rsplit(".", 1)[0] + ".pdf"
 
 
 def load_resume_data(conn: Connection, user_id: str) -> ResumeData:
@@ -144,12 +149,12 @@ def build_one_page(data: ResumeData, opts: BuildOptions, jd_text: Optional[str] 
             path = os.path.join(tmp, "r{}.docx".format(step))
             o = opts.model_copy(update={"drop": drop, "scale": scale})
             res = build(data, o, path)
-            pages = count_pages([path])[path]
+            pages, pdf = render([path], keep_pdf=True)[path]
             if pages == 1:
                 with open(path, "rb") as f:
                     content = f.read()
                 b = Built(content=content, filename=resume_filename(data.contact.name), result=res,
-                          pages=pages, scale=scale, dropped=dropped)
+                          pages=pages, scale=scale, dropped=dropped, pdf=pdf)
                 b.ats = round(ats_score(path)[0], 1)
                 if jd_text:
                     b.jd_match = round(100 * match_text(docx_text(path), jd_text).coverage, 1)
@@ -168,8 +173,9 @@ def build_one_page(data: ResumeData, opts: BuildOptions, jd_text: Optional[str] 
 def store(conn: Connection, user_id: str, built: Built, track_key: str,
           application_id: Optional[str] = None, is_baseline: bool = False) -> str:
     """Insert the file and its resume row. Call inside user_tx(user_id)."""
-    f = conn.execute("insert into resume_files (user_id, filename, content) values (%s, %s, %s) returning id",
-                     (user_id, built.filename, built.content)).fetchone()
+    f = conn.execute(
+        "insert into resume_files (user_id, filename, content, pdf, pdf_filename) values (%s, %s, %s, %s, %s) returning id",
+        (user_id, built.filename, built.content, built.pdf, built.pdf_filename if built.pdf else None)).fetchone()
     r = built.result
     bullet_ids = [b for b in r.bullet_ids]
     row = conn.execute(
@@ -179,6 +185,15 @@ def store(conn: Connection, user_id: str, built: Built, track_key: str,
         (user_id, application_id, track_key, is_baseline, f["id"], r.item_ids, bullet_ids, r.entry_ids,
          built.dropped, built.scale, built.pages, _renderer(), built.ats, built.jd_match)).fetchone()
     return row["id"]
+
+
+def pdf_from_docx(content: bytes) -> bytes:
+    """Render a stored .docx that has no PDF yet (files made before PDFs were kept)."""
+    with tempfile.TemporaryDirectory(prefix="pdf-") as tmp:
+        path = os.path.join(tmp, "r.docx")
+        with open(path, "wb") as f:
+            f.write(content)
+        return render([path], keep_pdf=True)[path][1]
 
 
 _RENDERER: Optional[str] = None

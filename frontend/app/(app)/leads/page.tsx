@@ -86,7 +86,7 @@ function LeadRow({ l, reload }: { l: Lead; reload: () => void }) {
         {l.decision === "keep" && <Badge tone="ok">{l.overridden ? "kept (your call)" : "kept"}</Badge>}
         {l.decision === "drop" && <Badge tone="bad">dropped</Badge>}
         {l.verification && <Badge tone={l.verification === "pass" ? "ok" : l.verification === "flag" ? "warn" : "bad"}>company {l.verification}</Badge>}
-        {l.application_id && <Link href={`/applications/${l.application_id}`} className="text-accent hover:underline">open application →</Link>}
+        {l.application_id && <Link href={`/jobs/${l.application_id}`} className="text-accent hover:underline">open folder →</Link>}
       </div>
       {l.decision === "drop" && l.reasons?.length ? <p className="mt-1 text-muted">{l.reasons.join(" · ")}</p> : null}
       {l.error && <p className="mt-1 text-muted">{l.error}</p>}

@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { useMe } from "@/components/AppShell";
 import FactBankEditor from "@/components/FactBankEditor";
 import PreferencesForm from "@/components/PreferencesForm";
+import RolesPicker from "@/components/RolesPicker";
 import TracksEditor from "@/components/TracksEditor";
 import { Button, Card, Empty } from "@/components/ui";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
-const TABS = [["facts", "Fact bank"], ["prefs", "Preferences"], ["tracks", "Tracks"], ["data", "Usage & data"]] as const;
+const TABS = [["facts", "Fact bank"], ["roles", "Roles"], ["prefs", "Preferences"], ["tracks", "Resumes"],
+  ["data", "Usage & data"]] as const;
 
 interface Usage {
   steps: { step: string; calls: number; input_tokens: number; output_tokens: number; cache_read_tokens: number;
@@ -32,6 +34,7 @@ export default function ProfilePage() {
         ))}
       </div>
       {tab === "facts" && <FactBankEditor />}
+      {tab === "roles" && <RolesPicker initialMode={me.preferences.pool_mode ?? "mix"} onSaved={refresh} />}
       {tab === "prefs" && <PreferencesForm prefs={me.preferences} profile={me.profile} onSaved={refresh} />}
       {tab === "tracks" && <TracksEditor />}
       {tab === "data" && <DataTab />}

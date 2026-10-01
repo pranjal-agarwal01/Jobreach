@@ -35,19 +35,32 @@ Needs Python 3.10+, Node 20+, LibreOffice (`winget install TheDocumentFoundation
    npm run dev          # http://localhost:3000
    ```
 
-## The pipeline, per pasted lead
+## Sign-up, once per student
+
+1. **About you**: every CV, a description, projects, GitHub (public repos are read), other links,
+   and the fields and roles they want.
+2. **Audit**: the model drafts a fact bank from all of it; the student confirms facts, answers
+   up to 8 questions about missing evidence, and removes skills nothing backs.
+3. **Your roles**: the roles the confirmed record supports, each with a fit checked in code
+   (strong needs two confirmed items, good needs one). The student takes the mixed pool (every
+   strong and good fit) or picks roles. Each chosen role is registered with the job pool
+   (`pool_watches`) so the daily collector fetches for roles the pool does not cover yet.
+4. **Preferences**, then **Resumes**: one track per family of chosen roles, each calibrated to
+   one page.
+
+## The pipeline, per lead
 
 | Step | Who | What |
 |---|---|---|
-| S1 extract | Claude, low effort | Post → structured fields; email addresses kept only if written in the post |
+| S1 extract | model (fast) | Post → structured fields; email addresses kept only if written in the post |
 | S2 screen | code | Mills, money asks, recruiters/aggregators, no apply route, geography |
 | S3 match | code | The student's preferences: location, stipend floor, batch year, CGPA, freshness, one role per company |
-| S4 verify | code + Claude | DNS, MX, homepage (fetch locked to public hosts), business summary; cached 30 days |
-| S5 select | Claude, medium | Track, item order, bullets: ids only, validated against confirmed bullets |
-| S6 resume | code | Build, render with LibreOffice, one page or step down / drop a line |
-| S7 draft | Claude, medium | Paragraphs only; code renders HTML and appends the signature verbatim |
+| S4 verify | code + model | DNS, MX, homepage (fetch locked to public hosts), business summary; cached 30 days |
+| S5 select | model | Track, item order, bullets: ids only, validated against confirmed bullets |
+| S6 resume | code | Build, render with LibreOffice, one page or step down / drop a line; keep the page-checked PDF |
+| S7 draft | model | Paragraphs only; code renders HTML and appends the signature verbatim |
 | S8 lint | code | Blocks em dashes, bare URLs, unpublished addresses, unbacked numbers, wrong length, narrowed availability; two rewrites with feedback |
-| S9 deliver | student | Copy email, Open in Gmail, download `.docx`, press Send |
+| S9 deliver | student | Open the company's folder in Jobs: copy the email, download the PDF or copy a revocable share link, press Send |
 
 Every model call is logged with tokens and cost (`llm_calls`); Profile → Usage shows it.
 

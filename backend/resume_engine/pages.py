@@ -68,6 +68,15 @@ def count_pages(paths: Sequence[str | os.PathLike], timeout: int = 300,
     so it renders Calibri as Carlito on its own; {"Calibri": "Carlito"} reproduces that
     on a machine that does have Calibri (the Windows parity test).
     """
+    return {k: n for k, (n, _) in render(paths, timeout, substitute_fonts).items()}
+
+
+def render(paths: Sequence[str | os.PathLike], timeout: int = 300,
+           substitute_fonts: Optional[dict[str, str]] = None,
+           keep_pdf: bool = False) -> dict[str, tuple[int, Optional[bytes]]]:
+    """Return {input path: (page count, PDF bytes or None)}. The PDF is the one the page
+    count was measured on, so a delivered PDF is exactly the page-checked render. LibreOffice
+    writes it tagged, and its text reads column by column (checked 2026-10-01)."""
     if not paths:
         return {}
     with tempfile.TemporaryDirectory(prefix="pages-") as tmp:
@@ -92,14 +101,14 @@ def count_pages(paths: Sequence[str | os.PathLike], timeout: int = 300,
         cmd += [str(d) for d in staged.values()]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
-        counts: dict[str, int] = {}
+        out: dict[str, tuple[int, Optional[bytes]]] = {}
         for original, dst in staged.items():
             pdf = out_dir / (dst.stem + ".pdf")
             if not pdf.exists():
                 raise RendererError("no PDF for {} (soffice exit {}): {}".format(
                     original, proc.returncode, (proc.stderr or proc.stdout).strip()[:500]))
-            counts[original] = len(PdfReader(str(pdf)).pages)
-        return counts
+            out[original] = (len(PdfReader(str(pdf)).pages), pdf.read_bytes() if keep_pdf else None)
+        return out
 
 
 def count_one(path: str | os.PathLike, timeout: int = 120) -> int:

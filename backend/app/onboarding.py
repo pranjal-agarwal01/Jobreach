@@ -6,17 +6,33 @@ stored unconfirmed; nothing reaches a resume until the user confirms it.
 from __future__ import annotations
 
 import io
+import os
 import re
-from typing import Optional
+from typing import Optional, get_args
 
+import httpx
 from docx import Document
 from psycopg.types.json import Jsonb
 from pypdf import PdfReader
 
 from . import llm
-from .db import user_tx
+from .db import system_tx, user_tx
 from .pipeline import prompts
-from .pipeline.schemas import BulletProposals, Extraction, InterviewTurn, TrackProposals
+from .pipeline.schemas import (
+    BulletProposals, Discipline, Extraction, InterviewTurn, RoleAudit, TrackProposals,
+)
+
+FIELDS = set(get_args(Discipline)) - {"other"}
+# Posts name the same work differently ("SDE Intern" vs "Backend Intern"), so choosing a role
+# keeps leads from its neighbours too. S5 still picks the closest track per lead.
+FIELD_NEIGHBOURS = {
+    "sde": {"backend", "fullstack"}, "backend": {"sde", "fullstack"},
+    "fullstack": {"sde", "backend", "frontend"}, "frontend": {"sde", "fullstack"},
+    "ai_ml": {"cv"}, "cv": {"ai_ml"},
+}
+FIT_RANK = {"strong": 0, "good": 1, "stretch": 2}
+GITHUB_URL_RE = re.compile(r"^(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9-]{1,39})/?(?:[?#].*)?$", re.I)
+GITHUB_NAME_RE = re.compile(r"^@?([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))$")
 
 MAX_QUESTIONS = 8
 SECTION_DEFAULTS = {"awards": ("Awards & Certifications", "list", 0),
@@ -41,6 +57,48 @@ def text_from_upload(filename: str, data: bytes) -> str:
     if name.endswith((".txt", ".md")):
         return data.decode("utf-8", "replace")
     raise ValueError("Upload a PDF, DOCX or TXT file")
+
+
+def github_username(s: str) -> Optional[str]:
+    s = (s or "").strip()
+    m = GITHUB_URL_RE.match(s) or GITHUB_NAME_RE.match(s)
+    return m.group(1) if m else None
+
+
+def github_summary(username: str, timeout: float = 10.0) -> Optional[str]:
+    """The student's own public repositories, as a document for the audit to read: name,
+    description, language, topics, live link, last push. Forks and archived repos are left
+    out. Public API, no key (set GITHUB_TOKEN for a higher rate limit). Facts drawn from it
+    stay unconfirmed until the student confirms them, like everything else uploaded."""
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "jobreach"}
+    if os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
+    try:
+        r = httpx.get("https://api.github.com/users/{}/repos".format(username), headers=headers,
+                      params={"per_page": 100, "sort": "pushed", "type": "owner"}, timeout=timeout)
+    except httpx.HTTPError:
+        return None
+    if r.status_code != 200:
+        return None
+    repos = [x for x in r.json() if not x.get("fork") and not x.get("archived")][:30]
+    lines = ["GitHub profile https://github.com/{}: {} public repositories of their own, most "
+             "recently pushed first.".format(username, len(repos))]
+    for x in repos:
+        parts = [x["name"]]
+        if x.get("description"):
+            parts.append(x["description"])
+        if x.get("language"):
+            parts.append("language: " + x["language"])
+        if x.get("topics"):
+            parts.append("topics: " + ", ".join(x["topics"]))
+        if x.get("homepage"):
+            parts.append("live: " + x["homepage"])
+        if x.get("stargazers_count"):
+            parts.append("stars: {}".format(x["stargazers_count"]))
+        parts.append("repo: " + x["html_url"])
+        parts.append("last push: " + (x.get("pushed_at") or "")[:10])
+        lines.append("- " + " | ".join(parts))
+    return "\n".join(lines)
 
 
 def _slug(s: str) -> str:
@@ -261,7 +319,7 @@ def propose_tracks(user_id: str) -> dict:
     approves each. Skills outside the confirmed list are removed before storing."""
     with user_tx(user_id) as conn:
         profile = conn.execute("select name, headline, grad_date, batch_year from profiles").fetchone() or {}
-        prefs = conn.execute("select role_types, open_to from preferences").fetchone() or {}
+        prefs = conn.execute("select role_types, target_roles, open_to from preferences").fetchone() or {}
         items = conn.execute("select id, key, kind, name, tagline, stack from items where confirmed order by sort").fetchall()
         bullets = conn.execute("select item_id, text from bullets where confirmed order by sort").fetchall()
         facts = conn.execute("select kind, text from facts where confirmed_at is not null and kind <> 'skill'").fetchall()
@@ -313,3 +371,120 @@ def propose_tracks(user_id: str) -> dict:
                     ", ".join(unknown))
         conn.execute("update profiles set onboarding_step = 'tracks' where user_id = %s", (user_id,))
     return {"tracks": stored, "rationale": out.rationale, "warnings": warnings}
+
+
+# ------------------------------------------------------------------ roles: audit and choice
+
+def role_norm(role: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", role.lower()).strip()
+
+
+def audit_roles(user_id: str) -> dict:
+    """After the fact bank is confirmed: which roles and fields the student's record supports,
+    including every one they asked for, with an honest fit. Fit is checked in code against
+    the confirmed items it cites: strong needs two, good needs one."""
+    with user_tx(user_id) as conn:
+        profile = conn.execute("select headline, about, grad_date, batch_year, cgpa from profiles").fetchone() or {}
+        prefs = conn.execute("select role_types, desired_roles, open_to from preferences").fetchone() or {}
+        items = conn.execute("select id, key, kind, name, tagline, stack from items where confirmed order by sort").fetchall()
+        bullets = conn.execute("select item_id, text from bullets where confirmed order by sort").fetchall()
+        facts = conn.execute("select kind, text from facts where confirmed_at is not null and kind <> 'skill'").fetchall()
+        skills = [r["text"] for r in conn.execute(
+            "select text from facts where kind = 'skill' and confirmed_at is not null").fetchall()]
+        edu = conn.execute("select institution, degree, meta from education where confirmed order by sort").fetchall()
+        before = {(r["field"], role_norm(r["role"])) for r in conn.execute(
+            "select field, role from role_options where selected").fetchall()}
+    if not items and not skills:
+        raise ValueError("Confirm at least one project, job or skill first")
+    by_item: dict = {}
+    for b in bullets:
+        by_item.setdefault(b["item_id"], []).append(b["text"])
+    volatile = llm.dumps({
+        "asked_for": {"fields": prefs.get("role_types") or [], "roles": prefs.get("desired_roles") or [],
+                      "open_to": prefs.get("open_to") or []},
+        "profile": dict(profile), "education": [dict(e) for e in edu],
+        "items": [{"key": i["key"], "kind": i["kind"], "name": i["name"], "tagline": i["tagline"],
+                   "stack": i["stack"], "bullets": by_item.get(i["id"], [])} for i in items],
+        "confirmed_facts": [dict(f) for f in facts], "confirmed_skills": skills,
+    })
+    out = llm.structured("onb_roles", RoleAudit, stable=[prompts.ROLES], volatile=volatile,
+                         effort="medium", max_tokens=6000, ctx=llm.CallContext(user_id=user_id))
+    options = check_role_options(out.options, {i["key"] for i in items})
+    with user_tx(user_id) as conn:
+        conn.execute("delete from role_options")
+        for i, o in enumerate(options):
+            conn.execute(
+                """insert into role_options (user_id, field, role, fit, why, evidence_item_keys, gaps,
+                       desired, selected, sort) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (user_id, o.field, o.role, o.fit, o.why, o.evidence_item_keys, o.gaps, o.desired,
+                 (o.field, role_norm(o.role)) in before, i))
+        conn.execute("update profiles set onboarding_step = 'roles' where user_id = %s", (user_id,))
+    return {"summary": out.summary, "options": list_roles(user_id)}
+
+
+def check_role_options(options: list, known_items: set[str]) -> list:
+    """Drop duplicates and unknown fields, keep only cited items that are confirmed, and cap
+    each fit at what those items support. Strongest first, the student's own asks first."""
+    seen, kept = set(), []
+    for o in options:
+        role = " ".join(o.role.split())[:80]
+        k = (o.field, role_norm(role))
+        if not role or o.field not in FIELDS or k in seen:
+            continue
+        seen.add(k)
+        ev = [x for x in dict.fromkeys(o.evidence_item_keys) if x in known_items]
+        cap = "strong" if len(ev) >= 2 else "good" if ev else "stretch"
+        fit = o.fit if FIT_RANK[o.fit] >= FIT_RANK[cap] else cap
+        kept.append(o.model_copy(update={"role": role, "evidence_item_keys": ev, "fit": fit}))
+    kept.sort(key=lambda o: (FIT_RANK[o.fit], not o.desired))
+    return kept
+
+
+def list_roles(user_id: str) -> list[dict]:
+    """The audit's options, each with what the job pool holds for it: fresh public jobs in
+    that field over the last 7 days, and whether the daily collector watches the role."""
+    with user_tx(user_id) as conn:
+        rows = conn.execute("select * from role_options order by sort").fetchall()
+        pool = {r["field"]: r["n"] for r in conn.execute(
+            """select extracted->>'discipline' as field, count(*) as n from jobs
+               where visibility = 'public' and first_seen_at > now() - interval '7 days'
+               group by 1""").fetchall()}
+        watched = {(r["field"], r["role_norm"]) for r in conn.execute(
+            "select field, role_norm from pool_watches where status = 'active'").fetchall()}
+    return [{**r, "pool_jobs": pool.get(r["field"], 0),
+             "watched": (r["field"], role_norm(r["role"])) in watched} for r in rows]
+
+
+def select_roles(user_id: str, mode: str, option_ids: list[str]) -> list[dict]:
+    """The student's choice: specific roles, or the mix (every strong and good fit). Sets the
+    S3 discipline filter and the chosen titles, and registers each role with the job pool so
+    the daily collector starts fetching for any role it does not cover yet."""
+    with user_tx(user_id) as conn:
+        opts = conn.execute("select id::text, field, role, fit from role_options order by sort").fetchall()
+        if mode == "mix":
+            chosen = [o for o in opts if o["fit"] in ("strong", "good")]
+        else:
+            wanted = set(option_ids)
+            chosen = [o for o in opts if o["id"] in wanted]
+        if not chosen:
+            raise ValueError("Pick at least one role" if mode == "specific" else
+                             "No strong or good fits yet: pick roles yourself, or add evidence and re-run the audit")
+        ids = [o["id"] for o in chosen]
+        fields = sorted({f for o in chosen for f in {o["field"]} | FIELD_NEIGHBOURS.get(o["field"], set())})
+        conn.execute("update role_options set selected = (id = any(%s::uuid[]))", (ids,))
+        conn.execute("""update preferences set role_types = %s, target_roles = %s, pool_mode = %s, updated_at = now()
+                        where user_id = %s""", (fields, [o["role"] for o in chosen], mode, user_id))
+        conn.execute("update profiles set onboarding_step = 'preferences' where user_id = %s", (user_id,))
+    with system_tx() as conn:
+        watch_ids = []
+        for o in chosen:
+            w = conn.execute(
+                """insert into pool_watches (field, role, role_norm) values (%s, %s, %s)
+                   on conflict (field, role_norm) do update set status = 'active' returning id""",
+                (o["field"], o["role"], role_norm(o["role"]))).fetchone()
+            watch_ids.append(w["id"])
+            conn.execute("insert into pool_watch_users (watch_id, user_id) values (%s, %s) on conflict do nothing",
+                         (w["id"], user_id))
+        conn.execute("delete from pool_watch_users where user_id = %s and not (watch_id = any(%s))",
+                     (user_id, watch_ids))
+    return list_roles(user_id)
