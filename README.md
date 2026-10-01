@@ -11,7 +11,7 @@ never submits applications, and never touches LinkedIn. See [PRODUCT-SPEC.md](PR
 | API + pipeline | Python, FastAPI, background worker on a Postgres queue | `backend/app/` |
 | Resume engine | python-docx builder, LibreOffice page check, calibration | `backend/resume_engine/` |
 | Database | Supabase Postgres, row-level security on every per-user table | `supabase/migrations/` |
-| AI | Claude API (`claude-opus-5`), structured outputs, prompt caching | `backend/app/llm.py` |
+| AI | Claude Sonnet 5.5 via the Claude API or Microsoft Foundry; structured outputs, prompt caching | `backend/app/llm.py` |
 
 ## Run it locally (Windows)
 

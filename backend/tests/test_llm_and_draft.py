@@ -40,7 +40,9 @@ def fake(monkeypatch):
     llm.set_client(None)
 
 
-def test_request_shape_caches_stable_prefix_and_opts_into_fallbacks(fake):
+def test_request_shape_caches_stable_prefix_and_opts_into_fallbacks(fake, monkeypatch):
+    from dataclasses import replace
+    monkeypatch.setattr(llm, "settings", replace(llm.settings, provider="anthropic"))  # independent of .env
     c = fake([good_draft()])
     llm.structured("t", EmailDraft, stable=["RULES", "FACTS"], volatile="POST", effort="medium")
     kw = c.calls[0]
@@ -71,10 +73,16 @@ def test_refusal_and_truncation_raise_before_content_is_read(fake):
         llm.structured("t", EmailDraft, stable=["R"], volatile="x")
 
 
-def test_cost_counts_cache_reads_at_a_tenth():
+def test_cost_counts_cache_reads_at_each_models_rate():
     u = SimpleNamespace(input_tokens=1_000_000, output_tokens=0, cache_read_input_tokens=1_000_000,
                         cache_creation_input_tokens=0)
     assert llm.cost_usd("claude-opus-5", u) == pytest.approx(5.0 + 0.5)
+    assert llm.cost_usd("claude-sonnet-5-5", u) == pytest.approx(2.0 + 0.2)
+    assert llm.cost_usd("claude-opus-5-5", u) == pytest.approx(4.0 + 0.2)        # 0.05x cache reads
+    assert llm.cost_usd("jobreach-sonnet-5.5", u) == pytest.approx(2.0 + 0.2)    # Foundry deployment name
+    out = SimpleNamespace(input_tokens=0, output_tokens=1_000_000, cache_read_input_tokens=0,
+                          cache_creation_input_tokens=0)
+    assert llm.cost_usd("claude-haiku-4-5", out) == pytest.approx(5.0)
 
 
 def _write(fake_outputs, fake):

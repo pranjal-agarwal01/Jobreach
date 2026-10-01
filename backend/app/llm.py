@@ -27,15 +27,29 @@ from .db import system_tx
 
 T = TypeVar("T", bound=BaseModel)
 
-# USD per million tokens (input, output). Checked 2026-09; re-check before pricing.
-PRICES = {
-    "claude-opus-5": (5.0, 25.0),
-    "claude-opus-5-5": (4.0, 20.0),
-    "claude-sonnet-5": (2.0, 10.0),
-    "claude-haiku-4-5": (1.0, 5.0),
-}
-CACHE_WRITE_MULT, CACHE_READ_MULT = 1.25, 0.10
+# USD per million tokens: (input, output, cache-read multiplier). Checked 2026-10-01 against
+# platform.claude.com/docs/en/about-claude/pricing; Foundry bills the same rates in CCUs.
+# Ordered most specific first: lookup matches by substring, so a Foundry deployment named
+# e.g. "jobreach-sonnet-5-5" still prices correctly.
+PRICES = [
+    ("fable-5-1", (10.0, 50.0, 0.025)),
+    ("fable", (10.0, 50.0, 0.10)),
+    ("opus-5-5", (4.0, 20.0, 0.05)),
+    ("opus", (5.0, 25.0, 0.10)),
+    ("sonnet-5", (2.0, 10.0, 0.10)),      # Sonnet 5 and Sonnet 5.5
+    ("sonnet", (3.0, 15.0, 0.10)),
+    ("haiku", (1.0, 5.0, 0.10)),
+]
+CACHE_WRITE_MULT = 1.25                   # 5-minute cache writes
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+
+def _price(model: str) -> tuple[float, float, float]:
+    m = (model or "").lower().replace(".", "-")
+    for key, price in PRICES:
+        if key in m:
+            return price
+    return _price(settings.model) if model != settings.model else (5.0, 25.0, 0.10)
 
 
 class LLMError(RuntimeError):
@@ -82,12 +96,12 @@ def set_client(c) -> None:
 
 
 def cost_usd(model: str, usage) -> float:
-    pin, pout = PRICES.get(model, PRICES["claude-opus-5"])
+    pin, pout, read_mult = _price(model)
     uncached = getattr(usage, "input_tokens", 0) or 0
     write = getattr(usage, "cache_creation_input_tokens", 0) or 0
     read = getattr(usage, "cache_read_input_tokens", 0) or 0
     out = getattr(usage, "output_tokens", 0) or 0
-    return (uncached * pin + write * pin * CACHE_WRITE_MULT + read * pin * CACHE_READ_MULT
+    return (uncached * pin + write * pin * CACHE_WRITE_MULT + read * pin * read_mult
             + out * pout) / 1_000_000
 
 
