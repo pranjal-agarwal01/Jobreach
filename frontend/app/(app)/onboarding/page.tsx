@@ -92,9 +92,10 @@ function Consent({ version, onDone }: { version: string; onDone: () => void }) {
             <li>replies and outcomes you log.</li>
           </ul>
           <p>
-            It is used only to produce your resumes and drafts. Text is processed by Anthropic&apos;s Claude API to
-            read posts and write drafts; it is not used to train models. Jobreach never sends an email or submits an
-            application for you. You can delete your account and all of your data at any time from Profile.
+            It is used only to produce your resumes and drafts. To read posts and write drafts, text is processed by
+            OpenAI models through Microsoft&apos;s Azure OpenAI service, which does not use it to train models.
+            Jobreach never sends an email or submits an application for you. You can delete your account and all of
+            your data at any time from Profile.
           </p>
           <label className="mt-2 flex items-center gap-2">
             <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} />

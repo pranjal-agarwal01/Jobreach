@@ -11,14 +11,15 @@ never submits applications, and never touches LinkedIn. See [PRODUCT-SPEC.md](PR
 | API + pipeline | Python, FastAPI, background worker on a Postgres queue | `backend/app/` |
 | Resume engine | python-docx builder, LibreOffice page check, calibration | `backend/resume_engine/` |
 | Database | Supabase Postgres, row-level security on every per-user table | `supabase/migrations/` |
-| AI | Claude Sonnet 5.5 via the Claude API or Microsoft Foundry; structured outputs, prompt caching | `backend/app/llm.py` |
+| AI | Azure OpenAI (GPT-6.1 Sol, GPT-6 Luna for extraction) or Claude, one setting; structured outputs, prompt caching | `backend/app/llm.py` |
 
 ## Run it locally (Windows)
 
 Needs Python 3.10+, Node 20+, LibreOffice (`winget install TheDocumentFoundation.LibreOffice`).
 
 1. **Backend secrets.** Copy `backend/.env.example` to `backend/.env` and fill in
-   `ANTHROPIC_API_KEY` and `DATABASE_URL` (Supabase → Connect → Session pooler).
+   `DATABASE_URL` (Supabase → Connect → Session pooler) and the model provider's endpoint
+   and key (Azure OpenAI by default; Claude is one setting away).
 2. **Backend.**
    ```bash
    python -m venv .venv

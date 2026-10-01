@@ -3,7 +3,20 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel as _PydanticBase
+from pydantic import ConfigDict, Field
+
+
+def _no_defaults(schema: dict) -> None:
+    for prop in (schema.get("properties") or {}).values():
+        prop.pop("default", None)
+
+
+class BaseModel(_PydanticBase):
+    """Defaults exist for Python callers only. The JSON schema sent to the model carries
+    none: OpenAI strict structured outputs reject the `default` keyword, and the model must
+    fill every field itself either way."""
+    model_config = ConfigDict(json_schema_extra=_no_defaults)
 
 # ------------------------------------------------------------------ S1 extract
 
