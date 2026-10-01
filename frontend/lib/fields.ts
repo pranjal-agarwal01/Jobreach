@@ -1,10 +1,11 @@
-// Discipline keys, as S1 extracts them from a post and the S3 filter compares them.
+// Role families, as S1 extracts them from a post and matching compares them. Mirrors
+// FAMILIES in backend/app/taxonomy.py (keys and labels); keep the two in step.
 export const FIELDS: [string, string][] = [
-  ["sde", "SDE"], ["backend", "Backend"], ["fullstack", "Full-stack"], ["frontend", "Frontend"],
-  ["ai_ml", "AI / ML"], ["cv", "Computer vision"], ["data", "Data"], ["devops", "DevOps"],
-  ["mobile", "Mobile"], ["embedded", "Embedded"], ["qa", "QA"], ["design", "Design"],
-  ["product", "Product"], ["business", "Business / analyst"], ["operations", "Operations"],
-  ["marketing", "Marketing"],
+  ["sde", "Software engineering"], ["backend", "Backend"], ["frontend", "Frontend"], ["fullstack", "Full stack"],
+  ["mobile", "Mobile"], ["ai_ml", "AI and ML"], ["cv", "Computer vision"], ["data_analytics", "Data analytics"],
+  ["data_engineering", "Data engineering"], ["devops", "DevOps and cloud"], ["qa", "QA and testing"],
+  ["embedded", "Embedded"], ["security", "Security"], ["design", "Design"], ["product", "Product"],
+  ["business", "Business"], ["marketing", "Marketing"], ["operations", "Operations"],
 ];
 
 export const FIELD_LABEL: Record<string, string> = Object.fromEntries(FIELDS);

@@ -29,7 +29,9 @@ stated. country: the country of the role, or of the company if the \
 role's place is not given. When only a city or region is named, give the country it is in \
 ("Pune" is India, "Lahore" is Pakistan); null only when no place is named at all.
 - employment_type: internship, full_time, both, or unknown.
-- discipline: the main kind of work, using the closest value.
+- discipline: the main kind of work, using the closest value. sde is general software \
+engineering with no narrower focus. data_analytics is SQL, dashboards and reporting; \
+data_engineering is pipelines and warehouses; data science and machine learning are ai_ml.
 - role_titles: every distinct role the post advertises. title: the main one.
 - posted_age_label: the post's age exactly as shown (for example "3h", "2d", "1w", "45m"), \
 or null.

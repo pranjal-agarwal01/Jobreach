@@ -23,7 +23,7 @@ def test_fit_is_capped_by_confirmed_items():
     out = onb.check_role_options([
         opt("Backend Developer Intern", ev=["queuekit", "campusbites"]),          # 2 items: strong stays
         opt("ML Engineer Intern", field="ai_ml", ev=["queuekit"]),                  # 1 item: strong -> good
-        opt("Data Analyst Intern", field="data", fit="good", ev=["made_up_key"]),  # unconfirmed: -> stretch
+        opt("Data Analyst Intern", field="data_analytics", fit="good", ev=["made_up_key"]),  # unconfirmed: -> stretch
     ], known)
     fits = {o.role: o.fit for o in out}
     assert fits == {"Backend Developer Intern": "strong", "ML Engineer Intern": "good",

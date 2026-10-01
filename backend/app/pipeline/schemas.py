@@ -6,6 +6,8 @@ from typing import Literal, Optional
 from pydantic import BaseModel as _PydanticBase
 from pydantic import ConfigDict, Field
 
+from ..taxonomy import RoleFamily
+
 
 def _no_defaults(schema: dict) -> None:
     for prop in (schema.get("properties") or {}).values():
@@ -20,9 +22,8 @@ class BaseModel(_PydanticBase):
 
 # ------------------------------------------------------------------ S1 extract
 
-Discipline = Literal["sde", "backend", "fullstack", "frontend", "ai_ml", "cv", "data", "qa",
-                     "mobile", "devops", "embedded", "design", "product", "business", "marketing",
-                     "operations", "other"]
+# The kind of work a post is for: one of the shared role families (app/taxonomy.py).
+Discipline = RoleFamily
 
 
 class Stipend(BaseModel):

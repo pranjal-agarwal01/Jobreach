@@ -21,15 +21,12 @@ from .pipeline import prompts
 from .pipeline.schemas import (
     BulletProposals, Discipline, Extraction, InterviewTurn, RoleAudit, TrackProposals,
 )
+from .taxonomy import FAMILIES
 
 FIELDS = set(get_args(Discipline)) - {"other"}
 # Posts name the same work differently ("SDE Intern" vs "Backend Intern"), so choosing a role
 # keeps leads from its neighbours too. S5 still picks the closest track per lead.
-FIELD_NEIGHBOURS = {
-    "sde": {"backend", "fullstack"}, "backend": {"sde", "fullstack"},
-    "fullstack": {"sde", "backend", "frontend"}, "frontend": {"sde", "fullstack"},
-    "ai_ml": {"cv"}, "cv": {"ai_ml"},
-}
+FIELD_NEIGHBOURS = {k: set(f.neighbours) for k, f in FAMILIES.items() if f.neighbours}
 FIT_RANK = {"strong": 0, "good": 1, "stretch": 2}
 GITHUB_URL_RE = re.compile(r"^(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9-]{1,39})/?(?:[?#].*)?$", re.I)
 GITHUB_NAME_RE = re.compile(r"^@?([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))$")
