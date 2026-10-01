@@ -141,6 +141,34 @@ input, textarea, select {
 }
 .stamp-in { animation: stamp-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 
+/* ------------------------------------------------------------------ landing page */
+
+html { scroll-padding-top: 6rem; interpolate-size: allow-keywords; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+/* The hero's words arrive first, then the desk starts its scene. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+.hero-rise { animation: rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* The role strip: one marquee on the page, paused on hover, wrapped and still for reduced motion. */
+@keyframes marquee { to { transform: translateX(calc(-50% - 5px)); } }
+.marquee-track { animation: marquee 48s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+
+/* FAQ answers open with a height transition where the browser supports it. */
+.faq::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition: block-size 0.35s cubic-bezier(0.16, 1, 0.3, 1), content-visibility 0.35s allow-discrete;
+}
+.faq[open]::details-content { block-size: auto; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  .marquee-track { animation: none; flex-wrap: wrap; width: auto; }
+  .marquee-track [aria-hidden="true"] { display: none; }
+  .marquee { mask-image: none; }
 }

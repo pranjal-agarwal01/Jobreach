@@ -1,15 +1,22 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { Brand } from "@/components/AppShell";
 import { IconCheck } from "@/components/icons";
 import { Button, ErrorNote, Field, Postmark, inputCls } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 
+/** The landing page's "Get started" opens this in sign-up mode (?mode=signup). */
 export default function Login() {
+  return <Suspense><LoginForm /></Suspense>;
+}
+
+function LoginForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const params = useSearchParams();
+  const [mode, setMode] = useState<"signin" | "signup">(params.get("mode") === "signup" ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,13 +45,13 @@ export default function Login() {
     <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       {/* The product, shown by what it makes: a letter, written while the post is fresh. */}
       <section className="relative hidden overflow-hidden bg-inland px-12 py-10 lg:flex lg:flex-col xl:px-16">
-        <Brand />
+        <Link href="/" aria-label="Jobreach, home" className="self-start rounded-lg"><Brand /></Link>
         <div className="my-auto max-w-xl py-12">
           <h1 className="text-[44px] font-bold leading-[1.05] tracking-[-0.03em] xl:text-[52px]">
             Write to founders while the post is still fresh.
           </h1>
           <ul className="mt-6 flex flex-col gap-2.5 text-[16px] text-text-2">
-            {["Every line comes from facts you confirmed", "A one-page resume made for each company",
+            {["Every line comes from your own CV and projects", "A one-page resume made for each opening",
               "You read it and press Send. Always."].map((t) => (
               <li key={t} className="flex items-center gap-2.5"><IconCheck size={18} className="text-accent" />{t}</li>
             ))}
@@ -66,14 +73,14 @@ export default function Login() {
       </section>
 
       <section className="flex flex-col px-5 py-8 sm:px-10">
-        <div className="lg:hidden"><Brand /></div>
+        <div className="lg:hidden"><Link href="/" aria-label="Jobreach, home" className="rounded-lg"><Brand /></Link></div>
         <div className="m-auto w-full max-w-sm py-10">
           <h2 className="text-[30px] font-bold tracking-[-0.02em]">{mode === "signin" ? "Sign in" : "Create your account"}</h2>
           <p className="mt-1.5 text-[15px] text-muted">
-            {mode === "signin" ? "Your letters and folders are where you left them." : "Ten minutes of setup, then a letter for every good opening."}
+            {mode === "signin" ? "Your letters and folders are where you left them." : "One form, then a letter for every opening that fits you."}
           </p>
           <p className="mt-4 text-[15px] leading-relaxed text-text-2 lg:hidden">
-            Write to founders while the post is still fresh. Every line comes from facts you confirmed, and you press Send.
+            Write to founders while the post is still fresh. Every line comes from your own CV, and you press Send.
           </p>
           <form onSubmit={submit} className="mt-8 flex flex-col gap-4">
             <Field label="Email">

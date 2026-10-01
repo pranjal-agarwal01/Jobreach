@@ -139,7 +139,7 @@ export function Freshness({ hours, compact = false }: { hours: number | null | u
   const tone = hours < 6 ? "bg-post" : hours < 24 ? "bg-accent" : "bg-muted/60";
   const text = hours < 6 ? "text-post" : hours < 24 ? "text-accent" : "text-muted";
   return (
-    <span className="inline-flex items-center gap-2" title={`The post was ${hoursLabel(hours)} old when this was drafted`}>
+    <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap" title={`The post was ${hoursLabel(hours)} old when this was drafted`}>
       <span className={`relative h-1.5 overflow-hidden rounded-full bg-sunken ${compact ? "w-10" : "w-16"}`}>
         <span className={`absolute inset-y-0 left-0 rounded-full ${tone}`} style={{ width: `${left * 100}%` }} />
       </span>
