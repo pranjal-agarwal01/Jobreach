@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Badge, Button, Card, Empty, ErrorNote, Field, hoursLabel, inputCls } from "@/components/ui";
+import { IconCheck, IconChevronDown, IconChevronRight, IconExternal, IconX } from "@/components/icons";
+import { Badge, Button, Empty, ErrorNote, Field, PageHeader, fmtDayInline, hoursLabel, inputCls } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { Lead } from "@/lib/types";
 
@@ -31,7 +32,7 @@ export default function LeadsPage() {
     setNote(null);
     try {
       const r = await api.post<{ duplicate: boolean }>("/leads", { text, source_ref: url || null, found_by: foundBy || null });
-      setNote(r.duplicate ? "You already pasted this post." : "Added. Screening, verifying and drafting now, usually under two minutes.");
+      setNote(r.duplicate ? "You already pasted this post." : "Got it. Screening, checking the company and writing the letter, usually under two minutes.");
       if (!r.duplicate) { setText(""); setUrl(""); }
       load();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
@@ -39,34 +40,49 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="text-xl font-semibold">Leads</h1>
-      <Card title="Paste a post or job description">
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <textarea className={inputCls} rows={8} value={text} onChange={(e) => setText(e.target.value)} required
-            placeholder="Copy the whole post, including the poster's name and the post's age (e.g. '3h'). Pay terms are often in the last line." />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Link to the post (optional)"><input className={inputCls} value={url} onChange={(e) => setUrl(e.target.value)} /></Field>
-            <Field label="How you found it (optional)" hint="e.g. the LinkedIn search you ran. Recorded to learn what converts.">
+    <div className="flex flex-col gap-10">
+      <PageHeader title="Add a lead"
+        sub="Paste a hiring post you copied yourself, from LinkedIn or a careers page. It's screened, the company is checked, and a letter is written for you to read." />
+
+      <form onSubmit={submit} className="paper max-w-3xl overflow-hidden">
+        <label className="block">
+          <span className="sr-only">The post</span>
+          <textarea className="block min-h-56 w-full resize-y border-0 bg-transparent px-5 py-5 text-[15px] leading-relaxed outline-none placeholder:text-muted/80 sm:px-7"
+            value={text} onChange={(e) => setText(e.target.value)} required
+            placeholder={"Paste the whole post here, including who posted it and how old it is (like “3h”).\nPay terms are often in the last line, so copy to the end."} />
+        </label>
+        <details className="group border-t border-border">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 px-5 py-3 text-sm font-semibold text-text-2 sm:px-7">
+            Link and source <span className="font-normal text-muted">(optional)</span>
+            <IconChevronDown size={16} className="text-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2 sm:px-7">
+            <Field label="Link to the post"><input className={inputCls} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" /></Field>
+            <Field label="How you found it" hint="The search you ran. Recorded to learn which searches lead to replies.">
               <input className={inputCls} value={foundBy} onChange={(e) => setFoundBy(e.target.value)} />
             </Field>
           </div>
-          <ErrorNote error={error} />
-          {note && <p className="text-sm text-ok">{note}</p>}
-          <Button type="submit" className="self-start" busy={busy}>Screen and draft</Button>
-        </form>
-        <p className="mt-3 text-xs text-muted">
-          Paste text you copied yourself. Jobreach never logs into or scrapes LinkedIn. Pasted posts stay private to you.
-        </p>
-      </Card>
+        </details>
+        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-sunken/50 px-5 py-3 sm:px-7">
+          <Button type="submit" busy={busy} className="min-h-10 px-5" disabled={text.trim().length < 40}>Screen and draft</Button>
+          <span className="text-[13px] text-muted">Jobreach never logs into or scrapes LinkedIn. Pasted posts stay private to you.</span>
+        </div>
+      </form>
+      <div className="-mt-6 max-w-3xl">
+        <ErrorNote error={error} />
+        {note && <p className="inline-flex items-center gap-2 text-sm font-medium text-ok"><IconCheck size={16} /> {note}</p>}
+      </div>
 
-      <Card title="Your leads">
-        {!leads ? <p className="text-sm text-muted">Loading…</p> : leads.length === 0 ? <Empty>No leads yet.</Empty> : (
-          <ul className="divide-y divide-border">
+      <section aria-labelledby="yours" className="max-w-3xl">
+        <h2 id="yours" className="mb-3 text-[15px] font-semibold">Posts you&apos;ve added</h2>
+        {!leads ? <div className="h-40 animate-pulse rounded-2xl bg-sunken" /> : leads.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border-strong"><Empty>Nothing yet. Your first pasted post will show its result here.</Empty></div>
+        ) : (
+          <ul className="flex flex-col divide-y divide-border rounded-2xl border border-border bg-surface">
             {leads.map((l) => <LeadRow key={l.id} l={l} reload={load} />)}
           </ul>
         )}
-      </Card>
+      </section>
     </div>
   );
 }
@@ -74,35 +90,44 @@ export default function LeadsPage() {
 function LeadRow({ l, reload }: { l: Lead; reload: () => void }) {
   const [open, setOpen] = useState(false);
   const pending = l.status === "queued" || l.status === "processing";
+  const dropped = l.decision === "drop";
   return (
-    <li className="py-3 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <button className="min-w-0 flex-1 text-left font-medium hover:underline" onClick={() => setOpen(!open)}>
-          {l.company_name ?? (pending ? "Reading post…" : "Unknown company")} · {l.title ?? "role"}
-        </button>
-        <span className="text-muted">{l.posted_age_hours !== null ? `posted ${hoursLabel(l.posted_age_hours)} before paste` : ""}</span>
-        {pending && <Badge tone="accent">{l.status}…</Badge>}
-        {l.status === "failed" && <Badge tone="bad">failed</Badge>}
-        {l.decision === "keep" && <Badge tone="ok">{l.overridden ? "kept (your call)" : "kept"}</Badge>}
-        {l.decision === "drop" && <Badge tone="bad">dropped</Badge>}
-        {l.verification && <Badge tone={l.verification === "pass" ? "ok" : l.verification === "flag" ? "warn" : "bad"}>company {l.verification}</Badge>}
-        {l.application_id && <Link href={`/jobs/${l.application_id}`} className="text-accent hover:underline">open folder →</Link>}
+    <li className="px-4 py-3.5 sm:px-5">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className={`mt-1.5 size-2.5 shrink-0 rounded-full ${pending ? "animate-pulse bg-accent" : l.status === "failed" ? "bg-bad" : dropped ? "bg-border-strong" : "bg-ok"}`} />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">
+            {l.company_name ?? (pending ? "Reading the post…" : "Unknown company")}
+            {l.title && <span className="font-normal text-text-2"> {l.title}</span>}
+          </p>
+          <p className="mt-0.5 text-sm text-muted">
+            {pending ? "Screening, checking the company and writing" :
+              l.status === "failed" ? (l.error ?? "Something went wrong") :
+              dropped ? l.reasons?.join(" ") :
+              l.application_id ? "Letter ready" : (l.error ?? "Kept")}
+            {l.posted_age_hours !== null && !pending && <span>{`, post was ${hoursLabel(l.posted_age_hours)} old`}</span>}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {l.verification === "flag" && <Badge tone="warn">Check company</Badge>}
+          {l.overridden && <Badge>Your call</Badge>}
+          {l.application_id ? (
+            <Link href={`/jobs/${l.application_id}`} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-accent hover:bg-accent-soft">
+              Open folder <IconChevronRight size={16} />
+            </Link>
+          ) : !pending && (
+            <button onClick={() => setOpen(!open)} aria-expanded={open} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-sunken" aria-label="More">
+              <IconChevronDown size={18} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+          )}
+        </div>
       </div>
-      {l.decision === "drop" && l.reasons?.length ? <p className="mt-1 text-muted">{l.reasons.join(" · ")}</p> : null}
-      {l.error && <p className="mt-1 text-muted">{l.error}</p>}
       {open && (
-        <div className="mt-2 flex flex-col gap-2 rounded-md bg-bg p-3">
-          {l.flags?.length ? (
-            <div><p className="font-medium">Judgment calls</p>
-              <ul className="list-disc pl-5 text-muted">{l.flags.map((f, i) => <li key={i}>{f}</li>)}</ul></div>
-          ) : null}
-          {l.source_ref && <a className="text-accent hover:underline" href={l.source_ref} target="_blank" rel="noreferrer">Original post</a>}
-          <div className="flex gap-2">
-            {l.decision === "drop" && !l.application_id && (
-              <Button variant="secondary" onClick={async () => { await api.post(`/leads/${l.id}/override`); reload(); }}>Draft anyway</Button>
-            )}
-            <Button variant="ghost" onClick={async () => { if (confirm("Delete this lead?")) { await api.del(`/leads/${l.id}`); reload(); } }}>Delete</Button>
-          </div>
+        <div className="ml-5 mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-border pt-3">
+          <span className="mr-auto text-xs text-muted">Added {fmtDayInline(l.first_seen_at)}</span>
+          {l.source_ref && <a className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline" href={l.source_ref} target="_blank" rel="noreferrer"><IconExternal size={14} /> Original post</a>}
+          {dropped && <Button variant="secondary" onClick={async () => { await api.post(`/leads/${l.id}/override`); reload(); }}>Draft anyway</Button>}
+          <Button variant="ghost" onClick={async () => { if (confirm("Delete this lead?")) { await api.del(`/leads/${l.id}`); reload(); } }}><IconX size={15} /> Delete</Button>
         </div>
       )}
     </li>

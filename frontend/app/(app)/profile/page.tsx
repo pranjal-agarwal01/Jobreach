@@ -6,12 +6,12 @@ import FactBankEditor from "@/components/FactBankEditor";
 import PreferencesForm from "@/components/PreferencesForm";
 import RolesPicker from "@/components/RolesPicker";
 import TracksEditor from "@/components/TracksEditor";
-import { Button, Card, Empty } from "@/components/ui";
+import { Button, Card, Empty, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
 const TABS = [["facts", "Fact bank"], ["roles", "Roles"], ["prefs", "Preferences"], ["tracks", "Resumes"],
-  ["data", "Usage & data"]] as const;
+  ["data", "Usage and data"]] as const;
 
 interface Usage {
   steps: { step: string; calls: number; input_tokens: number; output_tokens: number; cache_read_tokens: number;
@@ -21,23 +21,34 @@ interface Usage {
   total: { cost_usd: number };
 }
 
+const STEP_LABEL: Record<string, string> = {
+  s1_extract: "Reading posts", s4_company: "Checking companies", s5_select: "Choosing resume lines", s7_draft: "Writing letters",
+  onb_extract: "Reading your CVs", onb_interview: "Setup questions", onb_bullets: "Writing bullets", onb_tracks: "Proposing resumes",
+  onb_roles: "Roles audit",
+};
+
 export default function ProfilePage() {
   const { me, refresh } = useMe();
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("facts");
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-4 text-xl font-semibold">Profile</h1>
-        {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)}
-            className={`rounded-md px-3 py-1 text-sm ${tab === k ? "bg-accent-soft text-accent" : "text-muted hover:text-text"}`}>{l}</button>
-        ))}
+    <div className="flex flex-col gap-8">
+      <PageHeader title={me.profile.name ?? "Your profile"}
+        sub="Everything your letters and resumes are allowed to say. Change it here and every new draft follows." />
+      <div role="tablist" aria-label="Profile sections" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+        <div className="flex gap-1 rounded-xl bg-sunken p-1">
+          {TABS.map(([k, l]) => (
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+              className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors ${tab === k ? "bg-surface text-text shadow-sm" : "text-muted hover:text-text"}`}>{l}</button>
+          ))}
+        </div>
       </div>
-      {tab === "facts" && <FactBankEditor />}
-      {tab === "roles" && <RolesPicker initialMode={me.preferences.pool_mode ?? "mix"} onSaved={refresh} />}
-      {tab === "prefs" && <PreferencesForm prefs={me.preferences} profile={me.profile} onSaved={refresh} />}
-      {tab === "tracks" && <TracksEditor />}
-      {tab === "data" && <DataTab />}
+      <div role="tabpanel">
+        {tab === "facts" && <FactBankEditor />}
+        {tab === "roles" && <RolesPicker initialMode={me.preferences.pool_mode ?? "mix"} onSaved={refresh} />}
+        {tab === "prefs" && <PreferencesForm prefs={me.preferences} profile={me.profile} onSaved={refresh} />}
+        {tab === "tracks" && <TracksEditor />}
+        {tab === "data" && <DataTab />}
+      </div>
     </div>
   );
 }
@@ -46,26 +57,33 @@ function DataTab() {
   const [u, setU] = useState<Usage | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => { api.get<Usage>("/usage").then(setU); }, []);
-  const usd = (n: number | null | undefined) => (n === null || n === undefined ? "–" : `$${Number(n).toFixed(4)}`);
+  const usd = (n: number | null | undefined) => (n === null || n === undefined ? "–" : `$${Number(n).toFixed(n < 0.01 ? 4 : 3)}`);
   return (
-    <div className="flex flex-col gap-5">
-      <Card title="Model usage (measured)">
-        {!u ? <p className="text-sm text-muted">Loading…</p> : u.steps.length === 0 ? <Empty>No model calls yet.</Empty> : (
+    <div className="flex max-w-4xl flex-col gap-6">
+      <Card title="What your drafts cost to make">
+        {!u ? <div className="h-24 animate-pulse rounded-xl bg-sunken" /> : u.steps.length === 0 ? <Empty>No AI work done yet.</Empty> : (
           <>
-            <div className="mb-3 flex flex-wrap gap-6 text-sm">
-              <span>Total <strong>{usd(u.total.cost_usd)}</strong></span>
-              <span>Per lead <strong>{usd(u.per_lead.avg_cost_per_lead)}</strong> ({u.per_lead.leads})</span>
-              <span>Per application <strong>{usd(u.per_application.avg_cost_per_application)}</strong> ({u.per_application.applications})</span>
-            </div>
+            <dl className="mb-6 grid grid-cols-3 gap-3">
+              {[["Per letter", usd(u.per_application.avg_cost_per_application)], ["Per pasted post", usd(u.per_lead.avg_cost_per_lead)],
+                ["In total", usd(u.total.cost_usd)]].map(([l, v]) => (
+                <div key={l} className="rounded-xl bg-sunken px-4 py-3">
+                  <dd className="text-[22px] font-bold tabular-nums tracking-tight">{v}</dd>
+                  <dt className="text-xs font-medium text-muted">{l}</dt>
+                </div>
+              ))}
+            </dl>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="text-xs text-muted"><tr><th className="py-1 pr-3">Step</th><th className="pr-3">Calls</th>
-                  <th className="pr-3">Input</th><th className="pr-3">Cached</th><th className="pr-3">Output</th><th className="pr-3">Cost</th><th>Avg time</th></tr></thead>
-                <tbody className="divide-y divide-border">
+                <thead className="text-xs text-muted">
+                  <tr className="border-b border-border"><th className="py-2 pr-3 font-medium">Step</th><th className="pr-3 text-right font-medium">Runs</th>
+                    <th className="pr-3 text-right font-medium">Tokens in</th><th className="pr-3 text-right font-medium">Tokens out</th>
+                    <th className="pr-3 text-right font-medium">Cost</th><th className="text-right font-medium">Avg time</th></tr>
+                </thead>
+                <tbody className="divide-y divide-border tabular-nums">
                   {u.steps.map((s) => (
-                    <tr key={s.step}><td className="py-1 pr-3 font-mono text-xs">{s.step}</td><td className="pr-3">{s.calls}</td>
-                      <td className="pr-3">{s.input_tokens}</td><td className="pr-3">{s.cache_read_tokens}</td><td className="pr-3">{s.output_tokens}</td>
-                      <td className="pr-3">{usd(s.cost_usd)}</td><td>{(s.avg_latency_ms / 1000).toFixed(1)}s</td></tr>
+                    <tr key={s.step}><td className="py-2 pr-3">{STEP_LABEL[s.step] ?? s.step}</td><td className="pr-3 text-right">{s.calls}</td>
+                      <td className="pr-3 text-right">{s.input_tokens.toLocaleString("en-IN")}</td><td className="pr-3 text-right">{s.output_tokens.toLocaleString("en-IN")}</td>
+                      <td className="pr-3 text-right">{usd(s.cost_usd)}</td><td className="text-right">{(s.avg_latency_ms / 1000).toFixed(1)}s</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -73,12 +91,12 @@ function DataTab() {
           </>
         )}
       </Card>
-      <Card title="Delete everything">
-        <p className="mb-3 text-sm text-muted">
-          Deletes your account, fact bank, resumes, drafts, leads and outcomes. This cannot be undone.
+      <Card title="Delete everything" className="border-bad/30">
+        <p className="mb-4 max-w-xl text-[15px] leading-relaxed text-text-2">
+          Deletes your account, fact bank, resumes, letters, leads and outcomes, and turns off every share link. This can&apos;t be undone.
         </p>
         <Button variant="danger" busy={busy} onClick={async () => {
-          if (prompt('Type DELETE to delete your account and all data') !== "DELETE") return;
+          if (prompt("Type DELETE to delete your account and all data") !== "DELETE") return;
           setBusy(true);
           await api.del("/account");
           await supabase.auth.signOut();

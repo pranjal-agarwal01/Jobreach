@@ -1,64 +1,146 @@
 @import "tailwindcss";
 
+/*
+  Jobreach: a student's correspondence desk. Every company is a folder, every application a
+  letter written on airmail-blue paper. Cool paper, royal-blue ink, and postal red kept for
+  the two things that matter: how fresh a post is, and the postmark on a sent letter.
+*/
+
 :root {
-  --bg: #f7f8fa;
-  --surface: #ffffff;
-  --border: #e3e6eb;
-  --text: #16181d;
-  --muted: #5f6673;
-  --accent: #1f3864;
-  --accent-soft: #e8edf6;
-  --ok: #1a7f4b;
-  --ok-soft: #e6f4ec;
-  --warn: #9a6200;
-  --warn-soft: #fdf3dc;
-  --bad: #b3261e;
-  --bad-soft: #fbe9e7;
+  --bg: #f4f6fa;            /* desk */
+  --surface: #ffffff;       /* panels */
+  --sunken: #eef2f8;        /* wells, rails */
+  --border: #e0e5ee;
+  --border-strong: #c8d1df;
+  --text: #141b34;          /* ink */
+  --text-2: #3b4562;
+  --muted: #5a6480;
+  --accent: #2846c4;        /* royal-blue fountain-pen ink */
+  --accent-strong: #1b2f8f;
+  --accent-soft: #e6ecfb;
+  --inland: #e3ebf8;        /* the inland letter card */
+  --inland-edge: #c5d4ee;
+  --post: #cf3a2e;          /* postal red */
+  --post-soft: #fbe8e5;
+  --ok: #13703f;
+  --ok-soft: #e1f2e8;
+  --warn: #935700;
+  --warn-soft: #fcefd6;
+  --bad: #b8261c;
+  --bad-soft: #fbe7e4;
+  --paper-shadow: 0 1px 2px rgb(20 27 52 / 0.06), 0 14px 34px -18px rgb(20 27 52 / 0.28);
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1115;
-    --surface: #171a20;
-    --border: #2a2f38;
-    --text: #e8eaee;
-    --muted: #9aa2af;
-    --accent: #8fb0e8;
-    --accent-soft: #1c2638;
-    --ok: #5fcf92;
-    --ok-soft: #13271c;
-    --warn: #e6b450;
-    --warn-soft: #2a220f;
-    --bad: #f28b82;
-    --bad-soft: #2c1614;
+    --bg: #0b1020;
+    --surface: #121a2e;
+    --sunken: #0f1628;
+    --border: #232e48;
+    --border-strong: #34405f;
+    --text: #e8ecf6;
+    --text-2: #bcc5db;
+    --muted: #9aa4be;
+    --accent: #93a9ff;
+    --accent-strong: #b9c7ff;
+    --accent-soft: #1a2447;
+    --inland: #17223d;
+    --inland-edge: #2a3a64;
+    --post: #ff7d6e;
+    --post-soft: #3a1714;
+    --ok: #5fd59c;
+    --ok-soft: #0f2a1e;
+    --warn: #f0b552;
+    --warn-soft: #2d2310;
+    --bad: #ff8a7d;
+    --bad-soft: #3a1714;
+    --paper-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 18px 40px -20px rgb(0 0 0 / 0.7);
+    color-scheme: dark;
   }
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-text: var(--text);
+  --color-text-2: var(--text-2);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
+  --color-inland: var(--inland);
+  --color-inland-edge: var(--inland-edge);
+  --color-post: var(--post);
+  --color-post-soft: var(--post-soft);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-letter: var(--font-literata), ui-serif, Georgia, serif;
+  --shadow-paper: var(--paper-shadow);
 }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-tap-highlight-color: transparent;
 }
 
 input, textarea, select {
   background: var(--surface);
   color: var(--text);
+}
+
+::selection { background: var(--inland-edge); color: var(--text); }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The airmail edge: the red-and-blue chevrons of an air-mail envelope. Used on letters only. */
+.airmail-edge {
+  background-image: repeating-linear-gradient(-45deg,
+    var(--post) 0 9px, transparent 9px 18px, var(--accent) 18px 27px, transparent 27px 36px);
+}
+
+.airmail-edge-fine {
+  background-image: repeating-linear-gradient(-45deg,
+    var(--post) 0 3.5px, transparent 3.5px 7px, var(--accent) 7px 10.5px, transparent 10.5px 14px);
+}
+
+/* A sheet of paper: letters and resumes. Small radius, crisp edge, lifted off the desk. */
+.paper {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: var(--paper-shadow);
+}
+.paper-inland {
+  background: var(--inland);
+  border: 1px solid var(--inland-edge);
+  border-radius: 4px;
+  box-shadow: var(--paper-shadow);
+}
+
+/* The one orchestrated motion: a postmark lands when the student says they sent it. */
+@keyframes stamp-in {
+  0% { opacity: 0; transform: scale(1.6) rotate(-4deg); }
+  60% { opacity: 1; transform: scale(0.94) rotate(-14deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-12deg); }
+}
+.stamp-in { animation: stamp-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
 }

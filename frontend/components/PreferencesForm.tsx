@@ -14,8 +14,9 @@ const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
 export function Toggle({ on, set, children }: { on: boolean; set: (v: boolean) => void; children: string }) {
   return (
-    <button type="button" onClick={() => set(!on)}
-      className={`rounded-full border px-3 py-1 text-xs ${on ? "border-accent bg-accent-soft text-accent" : "border-border text-muted"}`}>
+    <button type="button" onClick={() => set(!on)} aria-pressed={on}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors
+        ${on ? "border-accent bg-accent text-white dark:text-[#0b1020]" : "border-border-strong bg-surface text-text-2 hover:border-accent hover:text-accent"}`}>
       {children}
     </button>
   );

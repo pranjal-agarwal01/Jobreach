@@ -98,8 +98,8 @@ function TrackCard({ t, names, allItems, warning, reload, setError }: {
   return (
     <Card
       title={<span className="flex items-center gap-2">{t.label}
-        {t.approved ? (t.baseline ? <Badge tone="ok">approved · one page at {t.baseline.scale}</Badge> : <Badge tone="warn">calibrating…</Badge>)
-          : <Badge>not approved</Badge>}</span>}
+        {t.approved ? (t.baseline ? <Badge tone="ok">Approved, one page at {t.baseline.scale}</Badge> : <Badge tone="warn">Fitting to one page…</Badge>)
+          : <Badge>Not approved yet</Badge>}</span>}
       actions={<>
         {t.baseline && <Button variant="secondary" onClick={() => api.download(`/resumes/${t.baseline!.id}/download`)}>Download baseline</Button>}
         {dirty && <Button busy={busy} onClick={save}>Save changes</Button>}

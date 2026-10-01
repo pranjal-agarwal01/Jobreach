@@ -1,3 +1,4 @@
+import { demoBlob, demoRequest, isDemo } from "./demo";
 import { supabase } from "./supabase";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -16,6 +17,7 @@ async function token(): Promise<string> {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  if (isDemo()) return demoRequest<T>(method, path, body);
   const headers: Record<string, string> = { Authorization: `Bearer ${await token()}` };
   let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body;
@@ -43,15 +45,21 @@ export const api = {
   del: <T>(p: string) => request<T>("DELETE", p),
   upload: <T>(p: string, form: FormData) => request<T>("POST", p, form),
   async blob(path: string): Promise<Blob> {
+    if (isDemo()) return demoBlob();
     const res = await fetch(BASE + path, { headers: { Authorization: `Bearer ${await token()}` } });
     if (!res.ok) throw new ApiError(res.status, "Could not load the file");
     return res.blob();
   },
   async download(path: string) {
-    const res = await fetch(BASE + path, { headers: { Authorization: `Bearer ${await token()}` } });
-    if (!res.ok) throw new ApiError(res.status, "Download failed");
-    const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "resume.pdf";
-    const url = URL.createObjectURL(await res.blob());
+    let blob: Blob, name = "resume_Aarav_Mehta.pdf";
+    if (isDemo()) blob = await demoBlob();
+    else {
+      const res = await fetch(BASE + path, { headers: { Authorization: `Bearer ${await token()}` } });
+      if (!res.ok) throw new ApiError(res.status, "Download failed");
+      name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "resume.pdf";
+      blob = await res.blob();
+    }
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = name;

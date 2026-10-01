@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { Button, ErrorNote, Field, inputCls } from "@/components/ui";
+import { Brand } from "@/components/AppShell";
+import { IconCheck } from "@/components/icons";
+import { Button, ErrorNote, Field, Postmark, inputCls } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 
 export default function Login() {
@@ -33,29 +35,66 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6">
-        <h1 className="text-xl font-semibold text-accent">Jobreach</h1>
-        <p className="mb-5 mt-1 text-sm text-muted">
-          A truthful, tailored resume and email for every fresh opening. You press Send.
-        </p>
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <Field label="Email">
-            <input className={inputCls} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </Field>
-          <Field label="Password" hint={mode === "signup" ? "At least 8 characters" : undefined}>
-            <input className={inputCls} type="password" required minLength={8} value={password}
-              onChange={(e) => setPassword(e.target.value)} />
-          </Field>
-          <ErrorNote error={error} />
-          {note && <p className="rounded-md bg-ok-soft px-3 py-2 text-sm text-ok">{note}</p>}
-          <Button type="submit" busy={busy}>{mode === "signin" ? "Sign in" : "Create account"}</Button>
-        </form>
-        <button className="mt-4 text-sm text-muted hover:text-text"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
-          {mode === "signin" ? "New here? Create an account" : "Have an account? Sign in"}
-        </button>
-      </div>
+    <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+      {/* The product, shown by what it makes: a letter, written while the post is fresh. */}
+      <section className="relative hidden overflow-hidden bg-inland px-12 py-10 lg:flex lg:flex-col xl:px-16">
+        <Brand />
+        <div className="my-auto max-w-xl py-12">
+          <h1 className="text-[44px] font-bold leading-[1.05] tracking-[-0.03em] xl:text-[52px]">
+            Write to founders while the post is still fresh.
+          </h1>
+          <ul className="mt-6 flex flex-col gap-2.5 text-[16px] text-text-2">
+            {["Every line comes from facts you confirmed", "A one-page resume made for each company",
+              "You read it and press Send. Always."].map((t) => (
+              <li key={t} className="flex items-center gap-2.5"><IconCheck size={18} className="text-accent" />{t}</li>
+            ))}
+          </ul>
+          <article className="paper relative mt-12 max-w-lg -rotate-[1.2deg] overflow-hidden" aria-label="An example letter">
+            <div className="airmail-edge h-2" />
+            <Postmark date={new Date().toISOString()} label="FRESH" className="absolute right-5 top-5 size-20" />
+            <div className="px-7 pb-7 pt-5 font-letter text-[15px] leading-[1.7] text-text-2">
+              <p className="pr-20 font-sans text-xs text-muted">To careers@kitebox.example</p>
+              <p className="mt-3 text-text">Hi Riya,</p>
+              <p className="mt-2">
+                I saw your post about the Backend Developer Intern role, two hours ago. At my college fest I built a job queue
+                that took lost registration emails from about 40 to zero&hellip;
+              </p>
+            </div>
+          </article>
+        </div>
+        <p className="text-sm text-muted">Jobreach never sends email, submits applications, or logs into LinkedIn for you.</p>
+      </section>
+
+      <section className="flex flex-col px-5 py-8 sm:px-10">
+        <div className="lg:hidden"><Brand /></div>
+        <div className="m-auto w-full max-w-sm py-10">
+          <h2 className="text-[30px] font-bold tracking-[-0.02em]">{mode === "signin" ? "Sign in" : "Create your account"}</h2>
+          <p className="mt-1.5 text-[15px] text-muted">
+            {mode === "signin" ? "Your letters and folders are where you left them." : "Ten minutes of setup, then a letter for every good opening."}
+          </p>
+          <p className="mt-4 text-[15px] leading-relaxed text-text-2 lg:hidden">
+            Write to founders while the post is still fresh. Every line comes from facts you confirmed, and you press Send.
+          </p>
+          <form onSubmit={submit} className="mt-8 flex flex-col gap-4">
+            <Field label="Email">
+              <input className={inputCls} type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </Field>
+            <Field label="Password" hint={mode === "signup" ? "At least 8 characters" : undefined}>
+              <input className={inputCls} type="password" autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+            </Field>
+            <ErrorNote error={error} />
+            {note && <p className="rounded-[10px] bg-ok-soft px-3.5 py-2.5 text-sm text-ok">{note}</p>}
+            <Button type="submit" busy={busy} className="mt-2 min-h-11 text-[15px]">{mode === "signin" ? "Sign in" : "Create account"}</Button>
+          </form>
+          <p className="mt-6 text-sm text-muted">
+            {mode === "signin" ? "New here? " : "Already have an account? "}
+            <button className="font-semibold text-accent hover:underline" onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); setNote(null); }}>
+              {mode === "signin" ? "Create an account" : "Sign in"}
+            </button>
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

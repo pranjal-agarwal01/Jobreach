@@ -28,7 +28,7 @@ function Editable({ value, onSave, multiline = false, placeholder }:
 function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
     <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted" title="Confirm this is true">
-      <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" className="size-[18px] accent-[var(--accent)]" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       {label}
     </label>
   );
@@ -64,10 +64,10 @@ export default function FactBankEditor({ onChange }: { onChange?: (fb: FactBank)
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface p-3 text-sm">
-        <span>
-          Only <strong>confirmed</strong> lines ever reach a resume or an email. Tick each line you can
-          stand behind in an interview; edit or delete anything that is wrong.
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/20 bg-accent-soft/60 px-4 py-3 text-[15px]">
+        <span className="flex-1">
+          Only <strong>ticked</strong> lines ever reach a resume or a letter. Tick each line you can
+          stand behind in an interview; click any text to fix it.
         </span>
         {pending > 0 && (
           <Button variant="secondary" busy={busy} onClick={async () => {
