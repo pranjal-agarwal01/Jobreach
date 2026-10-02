@@ -210,29 +210,34 @@ def _renderer() -> str:
 
 
 def calibrate_baselines(user_id: str, track_keys: Optional[list[str]] = None) -> dict:
-    """Onboarding step 9: find each track's one-page scale and store a verified baseline.
-    Rendering takes seconds per track, so it runs outside any database transaction."""
+    """Find each baseline's one-page scale and store a verified baseline. A record too long for
+    one page even at the smallest type is built at that size, dropping its lowest-priority lines
+    (the dropped ids are kept on the resume row). Rendering takes seconds per track, so it runs
+    outside any database transaction; one track failing does not stop the others."""
     from ..db import user_tx
 
     with user_tx(user_id) as conn:
         data = load_resume_data(conn, user_id)
     keys = [k for k in (track_keys or list(data.tracks)) if k in data.tracks]
-    results = cal.calibrate(data, tracks=keys)
     out, built_by_key = {}, {}
-    for key, c in results.items():
-        if c.scale is None:
-            out[key] = {"ok": False, "error": "Too much content for one page even at the smallest type "
-                                              "size. Remove an item or a few bullets from this track."}
+    for key in keys:
+        if not any(s.item_ids for s in data.tracks[key].left_sections):
+            out[key] = {"ok": False, "error": "This resume has no projects or jobs on it yet."}
             continue
-        data.tracks[key].scale = c.scale
-        built_by_key[key] = (c, build_one_page(data, BuildOptions(track=key)))
+        try:
+            c = cal.calibrate(data, tracks=[key])[key]
+            data.tracks[key].scale = c.scale if c.scale is not None else cal.MIN_SCALE
+            built_by_key[key] = (c, build_one_page(data, BuildOptions(track=key)))
+        except ResumeTooLong as e:
+            out[key] = {"ok": False, "error": str(e)}
 
     with user_tx(user_id) as conn:
         for key, (c, built) in built_by_key.items():
-            conn.execute("update tracks set scale = %s, calibrated_at = now() where key = %s", (c.scale, key))
+            conn.execute("update tracks set scale = %s, calibrated_at = now() where key = %s", (built.scale, key))
             old = conn.execute("select file_id from resumes where track_key = %s and is_baseline", (key,)).fetchall()
             for o in old:
                 conn.execute("delete from resume_files where id = %s", (o["file_id"],))
             rid = store(conn, user_id, built, key, is_baseline=True)
-            out[key] = {"ok": True, "scale": c.scale, "capped": c.capped, "resume_id": rid, "ats": built.ats}
+            out[key] = {"ok": True, "scale": built.scale, "capped": c.capped, "resume_id": rid, "ats": built.ats,
+                        "dropped": built.dropped}
     return out

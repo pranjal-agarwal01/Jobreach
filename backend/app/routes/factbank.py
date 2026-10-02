@@ -1,6 +1,7 @@
 """
-The fact bank: view, edit, confirm, delete. Confirming is the user's statement that a line
-is true; only confirmed lines reach a resume or an email.
+The fact bank: view, edit, delete. `confirmed` means usable: onboarding sets it on every line
+its documents back, and anything the user writes or edits is their own statement and usable
+at once. Only usable lines reach a resume or an email.
 """
 from __future__ import annotations
 
@@ -40,7 +41,7 @@ def factbank(user: User = Depends(current_user)):
         "items": [{**i, "bullets": by_item.get(i["id"], [])} for i in items],
         "sections": [{**s, "entries": by_sec.get(s["id"], [])} for s in sections],
         "education": education,
-        "facts": facts,   # skills, interview facts and other facts not yet on a bullet
+        "facts": facts,   # skills and other facts not on a bullet or entry
     }
 
 
@@ -119,7 +120,7 @@ def create_item(body: ItemIn, user: User = Depends(current_user)):
             """insert into items (user_id, key, kind, name, tagline, period, stack, stack_label, links, confirmed, sort)
                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) returning *""",
             (user.id, key, body.kind or "project", body.name, body.tagline, body.period, body.stack,
-             body.stack_label or "Stack", Jsonb(body.links or []), bool(body.confirmed), body.sort or 300)).fetchone()
+             body.stack_label or "Stack", Jsonb(body.links or []), body.confirmed is not False, body.sort or 300)).fetchone()
     return r
 
 
@@ -148,7 +149,7 @@ def create_bullet(body: BulletIn, user: User = Depends(current_user)):
     """A bullet the user writes is their own statement: it becomes a fact of its own."""
     if not body.item_id or not body.text:
         raise HTTPException(400, "item_id and text are required")
-    c = bool(body.confirmed)
+    c = body.confirmed is not False
     with user_tx(user.id) as conn:
         f = conn.execute(
             """insert into facts (user_id, kind, text, source, confirmed_at)
@@ -169,13 +170,16 @@ def patch_bullet(bullet_id: str, body: BulletIn, user: User = Depends(current_us
         if b is None:
             raise HTTPException(404, "not found")
         if "text" in fields and fields["text"] != b["text"]:
-            # Editing the words edits the claim: the bullet now states a new fact of the user's own.
+            # Editing the words edits the claim: the bullet now states a new fact of the user's own,
+            # usable at once (unless the same request says otherwise).
+            usable = fields.get("confirmed", True)
             f = conn.execute(
                 """insert into facts (user_id, kind, text, source, confirmed_at)
                    values (%s, 'project', %s, 'edit', case when %s then now() end) returning id""",
-                (user.id, fields["text"], bool(fields.get("confirmed", b["confirmed"])))).fetchone()
-            conn.execute("update bullets set text = %s, fact_ids = %s, has_metric = %s where id = %s",
-                         (fields["text"], [f["id"]], bool(NUMBER_RE.search(fields["text"])), bullet_id))
+                (user.id, fields["text"], usable)).fetchone()
+            conn.execute("""update bullets set text = %s, fact_ids = %s, has_metric = %s, confirmed = %s,
+                                provenance = '{"ok": true, "edited_by_user": true}' where id = %s""",
+                         (fields["text"], [f["id"]], bool(NUMBER_RE.search(fields["text"])), usable, bullet_id))
             conn.execute("""delete from facts where id = any(%s) and source = 'upload'
                             and not exists (select 1 from bullets x where facts.id = any(x.fact_ids))""",
                          (b["fact_ids"],))
@@ -208,7 +212,7 @@ class EntryIn(BaseModel):
 def create_entry(body: EntryIn, user: User = Depends(current_user)):
     if not body.section or not body.text:
         raise HTTPException(400, "section and text are required")
-    c = bool(body.confirmed)
+    c = body.confirmed is not False
     with user_tx(user.id) as conn:
         sid = _section_id(conn, user.id, body.section)
         f = conn.execute(
@@ -260,7 +264,7 @@ def create_education(body: EducationIn, user: User = Depends(current_user)):
             """insert into education (user_id, institution, degree, meta, result, lines, confirmed, sort)
                values (%s, %s, %s, %s, %s, %s, %s, %s) returning *""",
             (user.id, body.institution, body.degree, body.meta, body.result, body.lines or [],
-             bool(body.confirmed), body.sort or 100)).fetchone()
+             body.confirmed is not False, body.sort or 100)).fetchone()
 
 
 @router.patch("/education/{edu_id}")
@@ -274,7 +278,7 @@ def delete_education(edu_id: str, user: User = Depends(current_user)):
     return _delete("education", edu_id, user)
 
 
-# ------------------------------------------------------------------ loose facts (skills, interview)
+# ------------------------------------------------------------------ loose facts (skills, other)
 
 class FactIn(BaseModel):
     kind: Optional[Literal["project", "role", "award", "skill", "metric", "other"]] = None
@@ -290,7 +294,7 @@ def create_fact(body: FactIn, user: User = Depends(current_user)):
         return conn.execute(
             """insert into facts (user_id, kind, text, source, confirmed_at)
                values (%s, %s, %s, 'edit', case when %s then now() end) returning *""",
-            (user.id, body.kind, body.text, bool(body.confirmed))).fetchone()
+            (user.id, body.kind, body.text, body.confirmed is not False)).fetchone()
 
 
 @router.patch("/facts/{fact_id}")

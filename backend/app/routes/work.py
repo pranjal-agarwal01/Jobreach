@@ -12,6 +12,7 @@ from fastapi.responses import Response
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 
+from .. import onboarding
 from ..auth import User, current_user
 from ..config import settings
 from ..db import audit, system_tx, user_tx
@@ -44,67 +45,32 @@ class TrackIn(BaseModel):
 
 @router.put("/tracks/{key}")
 def put_track(key: str, body: TrackIn, user: User = Depends(current_user)):
+    """An edit to a baseline is the user's own wording; the baseline is re-rendered to one page
+    in the background."""
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         return {"ok": True}
     sets = ", ".join("{} = %s".format(k) for k in fields)
     vals = [Jsonb(v) if k in ("left_sections", "skills") else v for k, v in fields.items()]
     with user_tx(user.id) as conn:
-        # Any edit needs a fresh approval and a fresh one-page calibration.
-        r = conn.execute("update tracks set {}, approved = false, scale = null where key = %s returning id".format(sets),
+        r = conn.execute("update tracks set {}, scale = null where key = %s returning id".format(sets),
                          vals + [key]).fetchone()
-    if r is None:
-        raise HTTPException(404, "not found")
-    return {"ok": True}
-
-
-NUMBER_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
-
-
-def track_problems(conn, t: dict) -> list[str]:
-    """Selection, never invention: a track may list only confirmed skills and items, and its
-    title and summary may carry only numbers the confirmed record contains."""
-    skills = {r["text"].strip().lower() for r in conn.execute(
-        "select text from facts where kind = 'skill' and confirmed_at is not null").fetchall()}
-    items = {r["key"] for r in conn.execute("select key from items where confirmed").fetchall()}
-    problems = []
-    unbacked = [s.strip() for g in t["skills"] for s in g.get("items", "").split(",")
-                if s.strip() and s.strip().lower() not in skills]
-    if unbacked:
-        problems.append("Skills not in your confirmed skills: " + ", ".join(unbacked))
-    missing = [k for s in t["left_sections"] for k in s.get("item_keys", []) if k not in items]
-    if missing:
-        problems.append("Items not confirmed: " + ", ".join(missing))
-    corpus = " ".join(r["t"] for r in conn.execute(
-        """select text as t from facts where confirmed_at is not null
-           union all select text from bullets where confirmed
-           union all select concat_ws(' ', institution, degree, meta, result, array_to_string(lines, ' '))
-             from education where confirmed
-           union all select concat_ws(' ', grad_date, batch_year::text, cgpa::text) from profiles""").fetchall())
-    known = {n.replace(",", "") for n in NUMBER_RE.findall(corpus)}
-    unknown = sorted({n.replace(",", "") for n in NUMBER_RE.findall(t["title_line"] + " " + t["summary"])} - known)
-    if unknown:
-        problems.append("Numbers not in your confirmed facts: " + ", ".join(unknown))
-    return problems
-
-
-@router.post("/tracks/{key}/approve")
-def approve_track(key: str, user: User = Depends(current_user)):
-    with user_tx(user.id) as conn:
-        t = conn.execute("select * from tracks where key = %s", (key,)).fetchone()
-        if t is None:
+        if r is None:
             raise HTTPException(404, "not found")
-        problems = track_problems(conn, t)
-        if problems:
-            raise HTTPException(400, "Fix before approving: " + " · ".join(problems))
-        conn.execute("update tracks set approved = true where key = %s", (key,))
+        conn.execute("""update profiles set build = build || jsonb_build_object('status', 'queued', 'step', 'rendering',
+                                                                                'error', null)""")
         task = enqueue(conn, user.id, "calibrate_tracks", {"track_keys": [key]})
     return {"ok": True, "task_id": task}
 
 
 @router.delete("/tracks/{key}")
 def delete_track(key: str, user: User = Depends(current_user)):
-    with user_tx(user.id) as conn:
+    """A baseline is a target role family: deleting it stops targeting that family."""
+    try:
+        onboarding.remove_family(user.id, key)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    with user_tx(user.id) as conn:      # tracks from before role families
         conn.execute("delete from resume_files where id in (select file_id from resumes where track_key = %s and is_baseline)", (key,))
         conn.execute("delete from tracks where key = %s", (key,))
     return {"ok": True}

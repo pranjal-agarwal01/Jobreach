@@ -127,6 +127,9 @@ class ExItem(BaseModel):
     stack: Optional[str] = None
     links: list[ExLink] = Field(default_factory=list)
     bullets: list[str] = Field(default_factory=list)
+    # For experience: counts toward years of experience only when full_time (or unknown and
+    # not called an internship).
+    employment: Literal["full_time", "internship", "part_time", "freelance", "unknown"] = "unknown"
 
 
 class ExEducation(BaseModel):
@@ -164,66 +167,29 @@ class Extraction(BaseModel):
     other_facts: list[str] = Field(default_factory=list)
 
 
-class NewItem(BaseModel):
-    key: str
-    kind: Literal["project", "experience"]
-    name: str
-    tagline: Optional[str] = None
-    period: Optional[str] = None
-
-
-class NewFact(BaseModel):
-    kind: Literal["project", "role", "award", "skill", "metric", "other"]
-    text: str
-    item_key: Optional[str] = None
-
-
-class InterviewTurn(BaseModel):
-    new_items: list[NewItem] = Field(default_factory=list)
-    new_facts: list[NewFact] = Field(default_factory=list)
-    next_question: Optional[str] = None
-    done: bool
-
-
-class ProposedBullet(BaseModel):
-    item_key: str
-    text: str
-    fact_ids: list[str]
-
-
-class BulletProposals(BaseModel):
-    bullets: list[ProposedBullet]
-
-
 class SkillGroupP(BaseModel):
     label: str
     items: str
 
 
-class ProposedTrack(BaseModel):
-    key: str
-    label: str
+class ProposedBaseline(BaseModel):
+    family: Discipline
     title_line: str
     summary: str
     left_sections: list[SectionSel]
     skills: list[SkillGroupP]
-
-
-class TrackProposals(BaseModel):
-    tracks: list[ProposedTrack]
-    rationale: str
-
-
-class RoleOptionP(BaseModel):
-    field: Discipline
-    role: str
+    evidence_item_keys: list[str]
     fit: Literal["strong", "good", "stretch"]
+    fit_why: str
+    gaps: list[str]
+
+
+class FamilySuggestion(BaseModel):
+    family: Discipline
     why: str
     evidence_item_keys: list[str]
-    gaps: list[str]
-    desired: bool
 
 
-class RoleAudit(BaseModel):
-    options: list[RoleOptionP]
-    summary: str
+class BaselineSet(BaseModel):
+    baselines: list[ProposedBaseline]
+    suggestions: list[FamilySuggestion]

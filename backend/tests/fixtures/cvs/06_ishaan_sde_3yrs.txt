@@ -1,0 +1,49 @@
+ISHAAN VERMA
+Software Engineer
+Bengaluru, Karnataka, India | ishaan.verma@example.com | +91 90000 00006
+github.com/ishaan-verma-example | linkedin.com/in/ishaan-verma-example
+
+SUMMARY
+Software engineer with three years on payment and settlement systems, and a side interest in
+retrieval-augmented question answering.
+
+EXPERIENCE
+
+Software Engineer, Ledgerline Payments (full-time) | Aug 2023 - Present | Bengaluru
+- Built the refunds API in Python and FastAPI, serving 2,000 requests per minute at the monthly peak.
+- Moved nightly settlement jobs to Celery workers on Redis, cutting the batch from 3 hours to 40 minutes.
+- Added idempotency keys to the payouts endpoint after a retry storm created duplicate transfers.
+- Wrote the on-call runbook for the settlement service and led 6 incident reviews.
+Stack: Python, FastAPI, Celery, Redis, PostgreSQL, Docker, AWS
+
+Software Engineering Intern, Brightwell Health (internship) | Jan 2023 - Jun 2023 | Pune
+- Built appointment-booking endpoints in Django REST Framework used by 40 partner clinics.
+- Replaced a cron-based reminder script with a queue, so missed SMS reminders could be retried.
+Stack: Python, Django, PostgreSQL, Docker
+
+Backend Engineering Intern, Tidepool Labs (internship) | May 2022 - Jul 2022
+- Wrote PostgreSQL migrations and tests for the onboarding service.
+
+PROJECTS
+
+DocChat - question answering over course PDFs
+- Indexed 300 course PDFs with LangChain and a pgvector store, answering questions with cited pages.
+- Evaluated answers on 120 hand-written questions; 87 were answered correctly with the right page.
+Stack: Python, LangChain, FastAPI, PostgreSQL, pgvector, RAG
+
+Invoice Lens - extracting fields from scanned invoices
+- Fine-tuned a LayoutLM model on 1,500 labelled invoices to pull totals, dates and GST numbers.
+Stack: Python, PyTorch, Hugging Face Transformers
+
+EDUCATION
+National Institute of Technology, Surat
+B.Tech, Computer Engineering | 2019 - 2023 | CGPA 8.4 / 10
+
+SKILLS
+Languages: Python, SQL, Go
+Backend: FastAPI, Django, Celery, REST APIs
+Data and ML: PostgreSQL, Redis, pgvector, LangChain, RAG, PyTorch, Hugging Face Transformers
+Infrastructure: Docker, AWS, GitHub Actions
+
+AWARDS
+Finalist, Smart India Hackathon 2022

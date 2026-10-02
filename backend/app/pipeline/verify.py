@@ -86,29 +86,35 @@ def _safe_url(url: str) -> bool:
 def fetch_homepage(domain: str) -> Optional[str]:
     """Return visible text of the homepage, or None. Manual redirects, each re-checked."""
     for start in ("https://" + domain, "https://www." + domain, "http://" + domain):
-        url = start
-        try:
-            with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=False,
-                              headers={"User-Agent": "JobreachVerifier/0.1 (+company check)"}) as c:
-                for _ in range(4):
-                    if not _safe_url(url):
-                        break
-                    with c.stream("GET", url) as r:
-                        if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
-                            url = str(httpx.URL(url).join(r.headers["location"]))
-                            continue
-                        if r.status_code >= 400:
+        text = fetch_page(start)
+        if text is not None:
+            return text
+    return None
+
+
+def fetch_page(url: str) -> Optional[str]:
+    """Visible text of one public web page, or None. Only public addresses on ports 80/443;
+    every redirect hop is re-checked."""
+    try:
+        with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=False,
+                          headers={"User-Agent": "JobreachVerifier/0.1 (+company check)"}) as c:
+            for _ in range(4):
+                if not _safe_url(url):
+                    return None
+                with c.stream("GET", url) as r:
+                    if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
+                        url = str(httpx.URL(url).join(r.headers["location"]))
+                        continue
+                    if r.status_code >= 400 or "html" not in r.headers.get("content-type", "html"):
+                        return None
+                    body = b""
+                    for chunk in r.iter_bytes():
+                        body += chunk
+                        if len(body) > MAX_BYTES:
                             break
-                        if "html" not in r.headers.get("content-type", "html"):
-                            break
-                        body = b""
-                        for chunk in r.iter_bytes():
-                            body += chunk
-                            if len(body) > MAX_BYTES:
-                                break
-                        return _visible_text(body.decode(r.encoding or "utf-8", "replace"))
-        except httpx.HTTPError:
-            continue
+                    return _visible_text(body.decode(r.encoding or "utf-8", "replace"))
+    except httpx.HTTPError:
+        return None
     return None
 
 

@@ -112,82 +112,58 @@ company.
 Return facts_used as the ids of the facts your email relies on, and roles_mentioned as the \
 role titles the email names (exactly one)."""
 
-ONBOARD_EXTRACT = """You turn a student's own resume and notes into a draft fact bank. The \
-student will confirm every line before anything is used, so extract faithfully; do not \
-improve, summarise or reword.
+ONBOARD_EXTRACT = """You turn a job seeker's own documents (one or more CVs, their notes, \
+their GitHub repositories and READMEs, their portfolio) into a structured profile. Nobody will \
+check each line by hand: code compares every line you return with the documents, and drops \
+any line it cannot find there. So extract faithfully; do not improve, embellish or summarise.
 
 - items: each project and each job, internship or freelance engagement. kind "experience" for \
-work done for an employer or client, "project" otherwise. key: a short lowercase slug. \
-bullets: the resume's bullet points for that item, copied as written.
+work done for an employer or client, "project" otherwise. key: a short lowercase slug. For \
+experience, name is the job title and tagline the employer; for a project, name is the \
+project's name and tagline a few words on what it is, as the documents describe it.
+- employment (experience only): full_time, internship, part_time or freelance when the \
+documents say so; unknown otherwise. Projects are unknown.
+- period: as written, for example "Jan 2022 - Present". stack: the tools named for that work, \
+comma separated.
+- bullets: the CV's bullet points for that item, copied as written. When an item is described \
+only in prose (notes, a README), split that prose into bullet-length sentences using the \
+writer's own words. Never add a number, tool, user count or outcome the text does not state.
+- The same project or job often appears in several documents: return it once, with every \
+distinct bullet from all of them, and no near-duplicate bullets.
 - entries: awards, certifications, hackathon results, test scores (section "awards"), and \
 positions of responsibility, clubs, volunteering and other roles (section "roles"). When the \
 original has a bold name followed by a description, put the name in lead and the rest in text.
 - education: each school or college, with degree, place and dates in meta, grade in result.
-- skills: every skill, tool, language or framework listed, one per entry.
+- skills: every skill, tool, language or framework the documents list or name, one per entry.
 - profile: contact details and links as written. batch_year: graduation year. cgpa: on a \
 10-point scale only when stated that way.
 - other_facts: true statements that fit nowhere else, for example a coding-profile count.
-- Never estimate a number or fill a gap. Leave out what is not written."""
+- Never estimate a number, fill a gap or guess a date. Leave out what is not written."""
 
-INTERVIEW = """You interview a student to find strong, true evidence missing from their fact \
-bank: freelance or client work, things they deployed and who uses them, hackathons, \
-positions of responsibility, and real numbers for existing work (users, requests, time saved, \
-accuracy, team size).
+BASELINES = """You plan one baseline resume for each role family a job seeker is targeting. A \
+baseline is the strong general resume for that kind of role; each opening later gets its own \
+tailored copy of it. You select and order the person's own record; you never invent.
 
-Each turn:
-- From the student's last answer only, record new facts exactly as they stated them. If they \
-say they do not know a number, record nothing for it. Never estimate or round up.
-- A fact that belongs to existing work carries that item's key. New work the student \
-describes becomes a new item (with a short lowercase key) and its facts carry that key.
-- Then ask one short, specific next question aimed at the biggest remaining gap, or set done \
-when the fact bank is strong or the student wants to stop. Ask at most about eight questions \
-in total; the conversation so far is included.
-- Be warm and brief. One question at a time."""
+For each target family (exactly one baseline per family, in the order given):
+- title_line: the target role, then a few words of real context. For students and recent \
+graduates the degree and graduation year ("Backend Developer · B.Tech Computer Science, \
+2027"); for experienced people their years and focus ("Software Engineer · 3 years building \
+payment APIs"), quoting years as the whole number in whole_years, never a decimal. At most \
+about 60 characters, so it fits one line. Never claim a seniority (senior, lead, staff, \
+principal) their history does not show.
+- summary: 2 to 3 sentences on why this person fits this family, led by their strongest \
+relevant work. Every claim and every number must come from the record, with the same numbers.
+- left_sections: headings with item keys in order. "Experience" before "Projects" when the \
+person has real jobs; for a student, projects usually lead. Pick the items that best show this \
+family's work, typically 3 to 4 items in total. Use only the item keys given.
+- skills: 4 to 7 groups of the person's listed skills, the ones this family hires for first, \
+as comma-separated text. Use only skills from the skills list.
+- evidence_item_keys: the items that directly show this family's kind of work.
+- fit: "strong" when two or more items directly show this work; "good" when one does; \
+"stretch" when none does (only skills or coursework). fit_why: one plain sentence naming the \
+work that shows it, or what is missing.
+- gaps: what openings in this family commonly ask for that the record does not show, in a few \
+words each (for example "no cloud deployment", "no React project"). Empty when there are none.
 
-BULLETS = """You write resume bullets from a student's confirmed facts. A bullet may state only \
-what its facts state, with the same numbers. Never add a metric, tool, skill, count or claim \
-that is not in the cited facts.
-
-- Style: start with a past-tense action verb; the first bullet of an item states the problem \
-the work solved; 21 to 29 words; surface every real number the facts contain.
-- fact_ids: the ids of every fact the bullet uses. Write bullets only for items that need \
-them (the items listed as needing bullets)."""
-
-ROLES = """You audit a student's confirmed record (items, bullets, skills, education, facts) \
-and list the entry-level roles they can credibly apply for now, so they can choose which \
-openings to receive.
-
-For each option:
-- field: the discipline value closest to the work.
-- role: a job title the way Indian startups post it, for example "Backend Developer Intern", \
-"ML Engineer Intern", "Data Analyst Intern", "Business Analyst Intern". Use "Intern" unless \
-the student only wants full-time roles.
-- fit: "strong" when two or more confirmed items show this work directly; "good" when one \
-item does; "stretch" when no item does (skills or coursework alone).
-- why: one sentence naming the items that show it. No numbers that are not in the record.
-- evidence_item_keys: the keys of the confirmed items that show it. Empty for a stretch with \
-no item behind it.
-- gaps: for good and stretch fits, what an interviewer would find missing, in a few words each.
-- desired: true when the student asked for this role or field at sign-up.
-
-Include every role and field the student asked for, with an honest fit even when it is a \
-stretch. Add the other roles their evidence supports. Give 3 to 8 options, strongest first, \
-and no two options for the same job under different names. Never invent experience.
-summary: two sentences on where the student is strongest, in plain words."""
-
-TRACKS = """You propose 1 to 4 resume tracks for a student. A track is one resume variant \
-aimed at a family of roles (for example SDE, ML, AI engineer, frontend, data analyst, \
-business analyst). Propose only tracks their confirmed evidence supports; one strong track \
-beats three thin ones. When the preferences list target_roles (the roles the student chose), \
-cover those roles: one track per family of closely related roles.
-
-For each track:
-- key: short lowercase slug. label: short name.
-- title_line: the target title, a middle dot, then their degree and graduation year, for \
-example "Aspiring Software Development Engineer · B.Tech Computer Science, 2027".
-- summary: 3 to 4 sentences. Every claim and number must come from the confirmed facts; no \
-invented numbers.
-- left_sections: headings and item keys in order ("Experience" before "Projects" when there \
-is real experience). Use only confirmed item keys; typically 3 to 4 items in total.
-- skills: 4 to 7 groups of the student's confirmed skills relevant to the track, as \
-comma-separated text. Use only skills that appear in the confirmed skills list."""
+suggestions: up to 2 other families, not among the targets, that two or more of the person's \
+items show strongly. Empty when nothing stands out. Never pad."""

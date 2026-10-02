@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends
 from psycopg.types.json import Jsonb
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..auth import User, current_user
 from ..config import settings
 from ..db import audit, system_tx, user_tx
+from ..onboarding import register_segments
+from ..taxonomy import band_for_years
 
 router = APIRouter()
 
@@ -62,6 +64,11 @@ class ProfileIn(BaseModel):
     batch_year: Optional[int] = None
     cgpa: Optional[float] = None
     onboarding_step: Optional[str] = None
+    career_stage: Optional[Literal["student", "graduate", "experienced"]] = None
+    experience_years: Optional[float] = Field(default=None, ge=0, le=60)
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    linkedin_url: Optional[str] = None
 
 
 @router.put("/profile")
@@ -73,6 +80,12 @@ def put_profile(body: ProfileIn, user: User = Depends(current_user)):
     vals = [Jsonb(v) if k == "links" else v for k, v in fields.items()]
     with user_tx(user.id) as conn:
         conn.execute("update profiles set {}, updated_at = now()".format(sets), vals)
+        if "career_stage" in fields or "experience_years" in fields:
+            p = conn.execute("select career_stage, experience_years, onboarding_step from profiles").fetchone()
+            conn.execute("update profiles set experience_band = %s",
+                         (band_for_years(float(p["experience_years"] or 0), p["career_stage"]),))
+    if ("career_stage" in fields or "experience_years" in fields) and p["onboarding_step"] == "done":
+        register_segments(user.id)
     return {"ok": True}
 
 
@@ -84,6 +97,8 @@ class PrefsIn(BaseModel):
     onsite_ok: Optional[bool] = None
     hybrid_ok: Optional[bool] = None
     stipend_floor: Optional[int] = None
+    salary_floor: Optional[int] = None
+    notice_period: Optional[str] = None
     currency: Optional[str] = None
     unpaid_remote_policy: Optional[str] = None
     unpaid_onsite_policy: Optional[str] = None

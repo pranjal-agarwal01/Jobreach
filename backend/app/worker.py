@@ -15,6 +15,7 @@ import traceback
 from psycopg.types.json import Jsonb
 
 from . import llm
+from . import onboarding
 from .config import settings
 from .db import system_tx
 from .pipeline import resume as resume_mod
@@ -62,14 +63,20 @@ def _failed(task, err: str, retry: bool) -> None:
             ("failed" if final else "queued", err[:2000], 30 * 2 ** task["attempts"], task["id"]))
     if final and task["kind"] == "process_lead":
         run_mod.fail(str(task["user_id"]), task["payload"]["job_id"], err)
+    elif final and task["kind"] in ("build_profile", "calibrate_tracks", "add_family"):
+        onboarding.fail_build(str(task["user_id"]), err)
 
 
 def handle(task) -> None:
     user_id, p = str(task["user_id"]), task["payload"]
     if task["kind"] == "process_lead":
         run_mod.process_lead(user_id, p["job_id"], override=p.get("override", False))
+    elif task["kind"] == "build_profile":
+        onboarding.build_profile(user_id)
     elif task["kind"] == "calibrate_tracks":
-        resume_mod.calibrate_baselines(user_id, p.get("track_keys"))
+        onboarding.render_baselines(user_id, p.get("track_keys"))
+    elif task["kind"] == "add_family":
+        onboarding.add_family(user_id, p["family"])
     else:
         raise ValueError("unknown task kind " + task["kind"])
 
