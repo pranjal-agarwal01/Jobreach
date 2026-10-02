@@ -10,8 +10,10 @@ import {
   Badge, Button, ErrorNote, Field, Monogram, Postmark, SENT_STATES, STATUS_LABEL, fmtDayInline, fmtWhen,
   hoursLabel, inputCls,
 } from "@/components/ui";
+import { MatchDial } from "@/components/OpportunityCard";
 import PdfDialog from "@/components/PdfDialog";
 import { api } from "@/lib/api";
+import { BUCKET } from "@/lib/opportunity";
 import type { AppDetail, Draft, ResumeLink } from "@/lib/types";
 
 const CHECK_LABELS: Record<string, string> = {
@@ -158,7 +160,14 @@ export default function JobFolderPage() {
                 <div className="px-5 pb-8 pt-6 sm:px-10">
                   <dl className={`mb-6 grid grid-cols-[64px_minmax(0,1fr)] gap-y-2 border-b border-dashed border-inland-edge pb-5 text-sm ${sent ? "pr-14 sm:pr-24" : ""}`}>
                     <dt className="text-muted">To</dt>
-                    <dd className="min-w-0"><CopyInline text={draft.to_addrs.join(", ")} done={copied === "to"} onCopy={() => copyText(draft.to_addrs[0] ?? "", "to")} /></dd>
+                    <dd className="min-w-0">
+                      <CopyInline text={draft.to_addrs.join(", ")} done={copied === "to"} onCopy={() => copyText(draft.to_addrs[0] ?? "", "to")} />
+                      {d.contact && (
+                        <span className="block text-xs text-muted">
+                          {d.contact.person_name ? `${d.contact.person_name}${d.contact.person_role ? `, ${d.contact.person_role}` : ""}: ` : ""}{d.contact.where}
+                        </span>
+                      )}
+                    </dd>
                     <dt className="text-muted">Subject</dt>
                     <dd className="min-w-0 font-semibold"><CopyInline text={draft.subject} done={copied === "subject"} onCopy={() => copyText(draft.subject, "subject")} /></dd>
                   </dl>
@@ -205,6 +214,28 @@ export default function JobFolderPage() {
         <aside className="flex flex-col gap-6">
           {resume ? <ResumeSheet resume={resume} reload={load} copyText={copyText} copied={copied} /> : (
             <p className="text-sm text-muted">No resume was built for this job.</p>
+          )}
+
+          {d.match && d.match.why.length > 0 && (
+            <section className="rounded-2xl border border-border bg-surface p-5">
+              <div className="flex items-center gap-3">
+                <MatchDial score={d.match.score} bucket={d.match.bucket} size={42} />
+                <div>
+                  <h2 className="text-[15px] font-semibold">Why this opening</h2>
+                  {d.match.bucket && <p className="text-xs text-muted">{BUCKET[d.match.bucket].short}, scored against your own work</p>}
+                </div>
+              </div>
+              <ul className="mt-3 flex flex-col gap-1.5 text-sm leading-snug">
+                {d.match.why.slice(0, 3).map((w) => (
+                  <li key={w} className="flex gap-2 text-text-2"><IconCheck size={15} className="mt-0.5 shrink-0 text-ok" strokeWidth={2.4} />{w}</li>
+                ))}
+              </ul>
+              {d.match.gaps.length > 0 && (
+                <ul className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Gaps">
+                  {d.match.gaps.map((g) => <li key={g} className="rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-medium text-warn">{g}</li>)}
+                </ul>
+              )}
+            </section>
           )}
 
           <section className="rounded-2xl border border-border bg-surface p-5">

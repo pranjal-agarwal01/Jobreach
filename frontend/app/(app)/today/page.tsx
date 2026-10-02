@@ -2,23 +2,18 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import OpportunityCard, { BucketHeading } from "@/components/OpportunityCard";
 import { IconAlert, IconChevronRight, IconClock, IconPaste } from "@/components/icons";
 import { Badge, Button, Empty, ErrorNote, Freshness, Monogram, PageHeader, fmtWhen, hoursLabel } from "@/components/ui";
 import { api } from "@/lib/api";
-import type { Application, Lead } from "@/lib/types";
-
-interface Today {
-  deadlines: { id: string; type: string; deadline_at: string | null; summary: string | null; application_id: string;
-               company_name: string | null; role_title: string | null }[];
-  drafts: Application[];
-  decisions: Lead[];
-  gaps: { id: string; text: string; item_name: string }[];
-  processing: number;
-}
+import { describe } from "@/lib/stage";
+import type { Bucket, Today } from "@/lib/types";
 
 const EVENT_LABEL: Record<string, string> = {
   interview: "Interview", assignment: "Assignment due", form_request: "Form to fill", gated_unpaid: "Unpaid offer to decide",
 };
+const ORDER: Bucket[] = ["strong", "good", "gaps"];
+const FIRST_SHOWN = 5;
 
 export default function TodayPage() {
   const [t, setT] = useState<Today | null>(null);
@@ -32,40 +27,40 @@ export default function TodayPage() {
   }, [t?.processing, load]);
 
   if (!t) return error ? <ErrorNote error={error} /> : <Skeleton />;
-  const n = t.drafts.length;
-  const freshest = t.drafts.reduce<number | null>((m, a) => a.age_at_draft_hours === null ? m
+  const n = t.ready.length;
+  const openings = ORDER.reduce((k, b) => k + t.groups[b].length, 0);
+  const freshest = t.ready.reduce<number | null>((m, a) => a.age_at_draft_hours === null ? m
     : m === null ? a.age_at_draft_hours : Math.min(m, a.age_at_draft_hours), null);
+  const who = t.me?.target_families?.length ? describe(t.me.career_stage, t.me.experience_years, t.me.target_families) : null;
+
+  const title = n ? `${n} letter${n === 1 ? "" : "s"} ready to send`
+    : openings ? `${openings} opening${openings === 1 ? "" : "s"} suit you` : "Nothing waiting yet";
+  const sub = [
+    who,
+    n && openings ? `${openings} more opening${openings === 1 ? "" : "s"} below, best match first.` : null,
+    n && freshest !== null ? `The freshest post is ${hoursLabel(freshest)} old; founders reply most to posts under six hours, so start at the top.` : null,
+    !n && !openings ? "Paste a fresh post from LinkedIn or a careers page. It's scored against your profile and its letter is ready in about two minutes." : null,
+  ].filter(Boolean).join(" ");
 
   return (
     <div className="flex flex-col gap-10">
-      <PageHeader
-        title={n ? `${n} letter${n === 1 ? "" : "s"} ready to send` : "Nothing waiting to send"}
-        sub={n && freshest !== null
-          ? `The freshest post is ${hoursLabel(freshest)} old. Founders reply most to posts under six hours, so start at the top.`
-          : "Paste a fresh post from LinkedIn or a careers page and its letter will be here in about two minutes."}
-        actions={<Link href="/leads"><Button variant="secondary"><IconPaste size={17} /> Paste a post</Button></Link>}
-      />
+      <PageHeader title={title} sub={sub}
+        actions={<Link href="/leads"><Button variant="secondary"><IconPaste size={17} /> Paste a post</Button></Link>} />
 
       {t.processing > 0 && (
         <p className="-mt-6 inline-flex items-center gap-2 self-start rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent">
           <span className="size-2 animate-pulse rounded-full bg-accent" />
-          Writing {t.processing} more letter{t.processing === 1 ? "" : "s"}
+          Working on {t.processing} more: reading posts and writing letters
         </p>
       )}
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col gap-10">
-          <section aria-labelledby="outbox">
-            <h2 id="outbox" className="mb-3 text-[15px] font-semibold">Outbox</h2>
-            {n === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border-strong">
-                <Empty action={<Link href="/leads"><Button>Paste a post</Button></Link>}>
-                  Every letter is drafted from your confirmed facts and checked before it lands here. You read it, attach the PDF and press Send.
-                </Empty>
-              </div>
-            ) : (
+          {n > 0 && (
+            <section aria-labelledby="outbox">
+              <h2 id="outbox" className="mb-3 text-[15px] font-semibold">Ready to send</h2>
               <ol className="paper divide-y divide-border overflow-hidden">
-                {t.drafts.map((a) => (
+                {t.ready.map((a) => (
                   <li key={a.id}>
                     <Link href={`/jobs/${a.id}`} className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-sunken/60 sm:px-5">
                       <Monogram name={a.company_name ?? a.domain ?? "?"} />
@@ -87,14 +82,29 @@ export default function TodayPage() {
                   </li>
                 ))}
               </ol>
-            )}
+            </section>
+          )}
+
+          <section aria-labelledby="openings" className="flex flex-col gap-8">
+            <div className="-mb-4 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="openings" className="text-[15px] font-semibold">Openings for you</h2>
+              {openings > 0 && <p className="text-sm text-muted">Scored against your own work. Nothing is sent until you press Send.</p>}
+            </div>
+            {openings === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border-strong">
+                <Empty action={<Link href="/leads"><Button>Paste a post</Button></Link>}>
+                  Each opening you add is checked, scored against your profile with the reasons and gaps spelled out, and
+                  given a letter and a resume tailored to it. You read them, attach the PDF and press Send.
+                </Empty>
+              </div>
+            ) : ORDER.filter((b) => t.groups[b].length > 0).map((b) => <Group key={b} bucket={b} t={t} reload={load} />)}
           </section>
 
           {t.decisions.length > 0 && (
             <section aria-labelledby="dropped">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 id="dropped" className="text-[15px] font-semibold">Dropped for you</h2>
-                <p className="text-sm text-muted">You can still draft any of these.</p>
+                <p className="text-sm text-muted">You can still write to any of these.</p>
               </div>
               <ul className="flex flex-col gap-2">
                 {t.decisions.map((l) => (
@@ -103,7 +113,7 @@ export default function TodayPage() {
                       <p className="font-medium">{l.company_name ?? "Unknown company"} <span className="font-normal text-muted">{l.title}</span></p>
                       <p className="text-sm text-muted">{l.reasons?.[0]}</p>
                     </div>
-                    <Button variant="ghost" onClick={async () => { await api.post(`/leads/${l.id}/override`); load(); }}>Draft anyway</Button>
+                    <Button variant="ghost" onClick={async () => { await api.post(`/leads/${l.id}/override`); load(); }}>Write anyway</Button>
                   </li>
                 ))}
               </ul>
@@ -134,23 +144,42 @@ export default function TodayPage() {
             )}
           </section>
 
-          {t.gaps.length > 0 && (
-            <section aria-labelledby="gaps">
-              <h2 id="gaps" className="mb-1 text-[15px] font-semibold">Lines that need a number</h2>
+          {t.number_gaps.length > 0 && (
+            <section aria-labelledby="numbers">
+              <h2 id="numbers" className="mb-1 text-[15px] font-semibold">Lines that need a number</h2>
               <p className="mb-3 text-sm text-muted">Only if you know the real one. A vague line beats an invented figure.</p>
               <ul className="flex flex-col gap-3">
-                {t.gaps.map((g) => (
+                {t.number_gaps.map((g) => (
                   <li key={g.id} className="border-l-2 border-accent/40 pl-3 text-sm leading-relaxed">
                     <p className="text-xs font-semibold text-accent">{g.item_name}</p>
                     <p className="text-text-2">{g.text}</p>
                   </li>
                 ))}
               </ul>
-              <Link href="/profile" className="mt-3 inline-block text-sm font-semibold text-accent hover:underline">Open your fact bank</Link>
+              <Link href="/profile" className="mt-3 inline-block text-sm font-semibold text-accent hover:underline">Open your profile</Link>
             </section>
           )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+function Group({ bucket, t, reload }: { bucket: Bucket; t: Today; reload: () => void }) {
+  const [all, setAll] = useState(false);
+  const items = t.groups[bucket];
+  const shown = all ? items : items.slice(0, FIRST_SHOWN);
+  return (
+    <div>
+      <BucketHeading bucket={bucket} count={items.length} />
+      <ul className="flex flex-col gap-3">
+        {shown.map((o) => <li key={o.id}><OpportunityCard o={o} onChange={reload} /></li>)}
+      </ul>
+      {items.length > shown.length && (
+        <button type="button" onClick={() => setAll(true)} className="mt-3 text-sm font-semibold text-accent hover:underline">
+          Show {items.length - shown.length} more
+        </button>
+      )}
     </div>
   );
 }

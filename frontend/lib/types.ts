@@ -92,6 +92,54 @@ export interface Lead {
   location: string | null; decision: "keep" | "drop" | "flag" | null; reasons: string[] | null;
   flags: string[] | null; overridden: boolean | null; rank: number | null; track_key: string | null;
   verification: string | null; application_id: Id | null; application_status: string | null;
+  match_id: Id | null; score: number | null; bucket: Bucket | null; prepare_status: PrepareStatus | null;
+  prepare_error: string | null;
+}
+
+// ------------------------------------------------------------------ opportunities (matches)
+
+export type Bucket = "strong" | "good" | "gaps";
+export type PrepareStatus = "queued" | "running" | "done" | "failed";
+/** Where an address was published: the post, the company's own site, or its general inbox. */
+export type ContactContext = "post_apply" | "careers_page" | "site_generic";
+
+/** One opening as it suits one person: score, reasons and gaps are theirs alone. */
+export interface Opportunity {
+  id: Id; job_id: Id; score: number | null; bucket: Bucket | null; why: string[]; gaps: string[];
+  decision: "keep" | "drop"; reasons: string[]; overridden: boolean; track_key: string | null;
+  prepare_status: PrepareStatus | null; prepare_error: string | null; seen_at: string | null;
+  dismissed_at: string | null; route: "email" | "portal" | null; apply_to: string | null; flags: string[] | null;
+  title: string | null; company_name: string | null; role_family: string | null; employment_type: string | null;
+  work_mode: "remote" | "hybrid" | "onsite" | "unknown" | null; city: string | null;
+  exp_min: number | null; exp_max: number | null; pay_min: number | null; pay_max: number | null;
+  pay_currency: string | null; pay_period: "month" | "year" | "total" | null;
+  skills_must: string[]; skills_nice: string[]; source: string; source_ref: string | null;
+  visibility: "private" | "public"; first_seen_at: string; age_hours: number | null;
+  domain: string | null; verification: string | null;
+  contact_email: string | null; contact_name: string | null; contact_role: string | null;
+  contact_context: ContactContext | null; application_id: Id | null; application_status: string | null;
+}
+export interface ContactCandidate {
+  id: Id; email: string; person_name: string | null; person_role: string | null; context: ContactContext;
+  source_url: string | null; evidence: string | null; is_generic: boolean; domain_matches: boolean | null;
+  confidence: number; chosen: boolean; where: string;
+}
+export interface OpportunityDetail extends Opportunity {
+  job: { raw_text: string; extracted: Record<string, unknown> | null };
+  company: { name: string; domain: string | null; verification: string | null; business_summary: string | null;
+             flags: string[] } | null;
+  contacts: ContactCandidate[];
+}
+export interface Today {
+  deadlines: { id: Id; type: string; deadline_at: string | null; summary: string | null; application_id: Id;
+               company_name: string | null; role_title: string | null }[];
+  ready: Application[];
+  groups: Record<Bucket, Opportunity[]>;
+  decisions: Lead[];
+  number_gaps: { id: Id; text: string; item_name: string }[];
+  processing: number;
+  me: { name: string | null; career_stage: Stage | null; experience_years: number | null;
+        experience_band: string | null; target_families: string[] | null } | null;
 }
 
 export interface Application {
@@ -115,4 +163,7 @@ export interface AppDetail {
             ats_score: number | null; jd_match: number | null; dropped_ids: string[]; filename: string;
             link: ResumeLink | null } | null;
   events: EventRow[]; job: { raw_text: string; extracted: Record<string, unknown> | null };
+  match: { id: Id; score: number | null; bucket: Bucket | null; why: string[]; gaps: string[] } | null;
+  contact: { email: string; person_name: string | null; person_role: string | null; context: ContactContext;
+             source_url: string | null; evidence: string | null; where: string } | null;
 }

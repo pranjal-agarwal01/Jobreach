@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { IconCheck, IconChevronDown, IconChevronRight, IconExternal, IconX } from "@/components/icons";
 import { Badge, Button, Empty, ErrorNote, Field, PageHeader, fmtDayInline, hoursLabel, inputCls } from "@/components/ui";
 import { api } from "@/lib/api";
+import { BUCKET } from "@/lib/opportunity";
 import type { Lead } from "@/lib/types";
 
 export default function LeadsPage() {
@@ -18,7 +19,8 @@ export default function LeadsPage() {
 
   const load = useCallback(() => api.get<Lead[]>("/leads").then(setLeads).catch((e) => setError(e.message)), []);
   useEffect(() => { load(); }, [load]);
-  const active = leads?.some((l) => l.status === "queued" || l.status === "processing");
+  const active = leads?.some((l) => l.status === "queued" || l.status === "processing"
+    || l.prepare_status === "queued" || l.prepare_status === "running");
   useEffect(() => {
     if (!active) return;
     const id = setInterval(load, 3000);
@@ -32,7 +34,7 @@ export default function LeadsPage() {
     setNote(null);
     try {
       const r = await api.post<{ duplicate: boolean }>("/leads", { text, source_ref: url || null, found_by: foundBy || null });
-      setNote(r.duplicate ? "You already pasted this post." : "Got it. Screening, checking the company and writing the letter, usually under two minutes.");
+      setNote(r.duplicate ? "You already pasted this post." : "Got it. It's read, scored for you and, if it suits you, its letter is written: usually under two minutes.");
       if (!r.duplicate) { setText(""); setUrl(""); }
       load();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
@@ -90,30 +92,39 @@ export default function LeadsPage() {
 function LeadRow({ l, reload }: { l: Lead; reload: () => void }) {
   const [open, setOpen] = useState(false);
   const pending = l.status === "queued" || l.status === "processing";
+  const writing = l.prepare_status === "queued" || l.prepare_status === "running";
   const dropped = l.decision === "drop";
   return (
     <li className="px-4 py-3.5 sm:px-5">
       <div className="flex items-start gap-3">
-        <span aria-hidden="true" className={`mt-1.5 size-2.5 shrink-0 rounded-full ${pending ? "animate-pulse bg-accent" : l.status === "failed" ? "bg-bad" : dropped ? "bg-border-strong" : "bg-ok"}`} />
+        <span aria-hidden="true" className={`mt-1.5 size-2.5 shrink-0 rounded-full ${pending || writing ? "animate-pulse bg-accent" : l.status === "failed" || l.prepare_status === "failed" ? "bg-bad" : dropped ? "bg-border-strong" : "bg-ok"}`} />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">
             {l.company_name ?? (pending ? "Reading the post…" : "Unknown company")}
             {l.title && <span className="font-normal text-text-2"> {l.title}</span>}
           </p>
           <p className="mt-0.5 text-sm text-muted">
-            {pending ? "Screening, checking the company and writing" :
+            {pending ? "Reading the post, checking the company and scoring it for you" :
               l.status === "failed" ? (l.error ?? "Something went wrong") :
               dropped ? l.reasons?.join(" ") :
-              l.application_id ? "Letter ready" : (l.error ?? "Kept")}
+              l.application_id ? "Letter ready" :
+              writing ? "Suits you. Writing the letter and tailoring your resume" :
+              l.prepare_status === "failed" ? `Couldn't prepare the letter: ${l.prepare_error ?? "try again from its page"}` :
+              (l.error ?? "Suits you")}
             {l.posted_age_hours !== null && !pending && <span>{`, post was ${hoursLabel(l.posted_age_hours)} old`}</span>}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {l.bucket && !dropped && <Badge tone={BUCKET[l.bucket].tone}>{BUCKET[l.bucket].short}</Badge>}
           {l.verification === "flag" && <Badge tone="warn">Check company</Badge>}
           {l.overridden && <Badge>Your call</Badge>}
           {l.application_id ? (
             <Link href={`/jobs/${l.application_id}`} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-accent hover:bg-accent-soft">
               Open folder <IconChevronRight size={16} />
+            </Link>
+          ) : l.match_id && !dropped && !pending ? (
+            <Link href={`/opportunities/${l.match_id}`} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-accent hover:bg-accent-soft">
+              Open <IconChevronRight size={16} />
             </Link>
           ) : !pending && (
             <button onClick={() => setOpen(!open)} aria-expanded={open} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-sunken" aria-label="More">
@@ -126,7 +137,7 @@ function LeadRow({ l, reload }: { l: Lead; reload: () => void }) {
         <div className="ml-5 mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-border pt-3">
           <span className="mr-auto text-xs text-muted">Added {fmtDayInline(l.first_seen_at)}</span>
           {l.source_ref && <a className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline" href={l.source_ref} target="_blank" rel="noreferrer"><IconExternal size={14} /> Original post</a>}
-          {dropped && <Button variant="secondary" onClick={async () => { await api.post(`/leads/${l.id}/override`); reload(); }}>Draft anyway</Button>}
+          {dropped && <Button variant="secondary" onClick={async () => { await api.post(`/leads/${l.id}/override`); reload(); }}>Write anyway</Button>}
           <Button variant="ghost" onClick={async () => { if (confirm("Delete this lead?")) { await api.del(`/leads/${l.id}`); reload(); } }}><IconX size={15} /> Delete</Button>
         </div>
       )}

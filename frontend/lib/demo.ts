@@ -2,7 +2,8 @@
 // profile) and fictional companies on .example domains, so the signed-in UI can be reviewed
 // without an account. Development builds only; turned on at /demo and off from the banner.
 import type {
-  AppDetail, Application, Build, FactBank, Lead, Me, ResumeLink, Review, Track,
+  AppDetail, Application, Build, ContactCandidate, FactBank, Lead, Me, Opportunity, OpportunityDetail, ResumeLink,
+  Review, Today, Track,
 } from "./types";
 
 const KEY = "jobreach-demo";
@@ -127,6 +128,12 @@ function detail(id: string): AppDetail {
       ? [{ id: "e2", type: "interview", occurred_at: ago(20), deadline_at: ahead(26), summary: "30-minute call with the CTO" },
          { id: "e1", type: "sent", occurred_at: ago(118), deadline_at: null, summary: "Marked sent" }]
       : c.sentAt !== undefined ? [{ id: "e1", type: "sent", occurred_at: ago(c.sentAt), deadline_at: null, summary: "Marked sent" }] : [],
+    match: { id: "m" + c.id, score: 81, bucket: "strong", why: [
+      "Go, PostgreSQL and Docker: used in QueueKit", "Backend is one of your targets; your Backend resume is a strong fit",
+      "An internship, and you're a student"], gaps: c.id === "a2" ? ["Asks for React"] : [] },
+    contact: c.route === "email" ? { email: c.status === "needs_review" ? "neha.iyer@gmail.com" : `careers@${c.domain}`,
+      person_name: c.poster, person_role: c.poster ? "Founder" : null, context: "post_apply", source_url: null,
+      evidence: `Send your resume to careers@${c.domain}`, where: "given in the post for applying" } : null,
     job: {
       raw_text: `${c.poster ?? c.company}\n${c.poster ? "Founder at " + c.company + "\n" : ""}${Math.round(c.draftAge)}h\n\nWe're hiring a ${c.role} (6 months, Rs 15,000 a month). Remote or ${"Pune"}.\nWork on our ${c.summary.toLowerCase().replace(/\.$/, "")}.\nSend your resume to careers@${c.domain}`,
       extracted: null,
@@ -139,16 +146,19 @@ const LEADS: Lead[] = [
     id: "j" + c.id, status: "done", error: null, source_ref: null, first_seen_at: ago(c.created), posted_age_hours: c.draftAge - 0.3,
     title: c.role, company_name: c.company, location: "Pune / Remote", decision: "keep", reasons: [], flags: c.calls,
     overridden: false, rank: 8, track_key: "sde", verification: c.calls.length ? "flag" : "pass",
-    application_id: c.id, application_status: c.status,
+    application_id: c.id, application_status: c.status, match_id: "m" + c.id, score: 81, bucket: "strong",
+    prepare_status: "done", prepare_error: null,
   })),
   { id: "jx1", status: "done", error: null, source_ref: null, first_seen_at: ago(6), posted_age_hours: 4, title: "Python Developer Intern",
     company_name: "SkillSprint Academy", location: "Online", decision: "drop",
     reasons: ["Asks candidates to pay a registration fee", "Certificates offered as the main benefit"], flags: [],
-    overridden: false, rank: null, track_key: null, verification: null, application_id: null, application_status: null },
+    overridden: false, rank: null, track_key: null, verification: null, application_id: null, application_status: null,
+    match_id: "mx1", score: null, bucket: null, prepare_status: null, prepare_error: null },
   { id: "jx2", status: "done", error: null, source_ref: null, first_seen_at: ago(30), posted_age_hours: 50, title: "Backend Intern",
     company_name: "TalentBridge Staffing", location: "Hyderabad", decision: "drop",
     reasons: ["Posted by a recruiter, not the company. No intermediary post has ever converted."], flags: [],
-    overridden: false, rank: null, track_key: null, verification: null, application_id: null, application_status: null },
+    overridden: false, rank: null, track_key: null, verification: null, application_id: null, application_status: null,
+    match_id: "mx2", score: null, bucket: null, prepare_status: null, prepare_error: null },
 ];
 
 const FACTBANK: FactBank = {
@@ -224,22 +234,144 @@ function review(): Review {
   };
 }
 
+
+// ------------------------------------------------------------------ openings scored for Aarav
+
+interface Opp { id: string; company: string; domain: string; title: string; family: string; bucket: Opportunity["bucket"];
+  score: number; age: number; mode: Opportunity["work_mode"]; city: string | null; kind: string;
+  pay: [number, number] | null; must: string[]; nice: string[]; why: string[]; gaps: string[];
+  contact: Omit<ContactCandidate, "id" | "chosen" | "where" | "is_generic" | "domain_matches" | "confidence"> | null;
+  portal?: string; flags?: string[]; summary: string; post: string; prepare?: Opportunity["prepare_status"] }
+
+const WHERE = { post_apply: "given in the post for applying", careers_page: "published on the company's own site as a hiring address",
+  site_generic: "the company's general inbox; no hiring address is published" } as const;
+
+const OPPS: Opp[] = [
+  { id: "o1", company: "Porchlight", domain: "porchlight.example", title: "Backend Developer Intern", family: "backend",
+    bucket: "strong", score: 88, age: 2, mode: "hybrid", city: "Pune", kind: "internship", pay: [20000, 25000],
+    must: ["Go or Node.js", "PostgreSQL", "Docker"], nice: ["Redis"],
+    why: ["PostgreSQL and Docker: used in QueueKit", "Redis: used in CampusBites", "Backend is one of your targets; your Backend resume is a strong fit",
+      "An internship, and you're a student", "Posted 2 hours ago", "Email to Ira Menon (CTO), given in the post for applying"], gaps: [],
+    contact: { email: "ira@porchlight.example", person_name: "Ira Menon", person_role: "CTO", context: "post_apply", source_url: null,
+      evidence: "Interns: send your resume and one thing you built to me, Ira Menon (CTO), at ira@porchlight.example." },
+    summary: "Builds visitor and delivery management for gated housing societies.",
+    post: "Ira Menon\nCTO at Porchlight\n2h\n\nWe're hiring a Backend Developer Intern (6 months, Rs 20-25k a month), hybrid in Pune.\nYou'll work on the APIs behind our gate app: Go or Node.js, PostgreSQL, Docker. Redis is a plus.\n\nInterns: send your resume and one thing you built to me, Ira Menon (CTO), at ira@porchlight.example." },
+  { id: "o2", company: "Saltpan Studio", domain: "saltpan.example", title: "Backend Engineer Intern", family: "backend",
+    bucket: "strong", score: 76, age: 9, mode: "remote", city: null, kind: "internship", pay: [30000, 30000],
+    must: ["Go", "PostgreSQL", "gRPC"], nice: [], prepare: "running",
+    why: ["Go and PostgreSQL: used in QueueKit", "Backend is one of your targets; your Backend resume is a strong fit",
+      "An internship, and you're a student", "Posted 9 hours ago",
+      "Email to the hiring team (jobs@saltpan.example), published on the company's own site as a hiring address"], gaps: ["Asks for gRPC"],
+    contact: { email: "jobs@saltpan.example", person_name: null, person_role: null, context: "careers_page", source_url: "https://saltpan.example/careers",
+      evidence: "Don't see your role? Write to us at jobs@saltpan.example and tell us what you'd build." },
+    summary: "Makes scheduling software for independent physiotherapy clinics.",
+    post: "Saltpan Studio is hiring a remote Backend Engineer Intern. Rs 30,000 a month. Go, PostgreSQL and gRPC. DM me if you're interested!\n9h" },
+  { id: "o3", company: "Brightloom", domain: "brightloom.example", title: "Full Stack Developer Intern", family: "fullstack",
+    bucket: "good", score: 64, age: 20, mode: "onsite", city: "Bengaluru", kind: "internship", pay: [18000, 18000],
+    must: ["Node.js", "React", "TypeScript"], nice: [], portal: "https://jobs.brightloom.example/fs-intern",
+    why: ["Node.js and Express: used in CampusBites", "Full stack is one of your targets; your Full stack resume is a good fit", "Posted 20 hours ago"],
+    gaps: ["Asks for React", "Asks for TypeScript"], contact: null,
+    summary: "An online store builder for handloom weavers.",
+    post: "Brightloom is hiring Full Stack Developer interns in Bengaluru (onsite, Rs 18,000 a month). Node.js, React, TypeScript.\nApply: https://jobs.brightloom.example/fs-intern\n20h" },
+  { id: "o4", company: "Tiffinbox", domain: "tiffinbox.example", title: "Software Developer", family: "sde",
+    bucket: "good", score: 55, age: 30, mode: "onsite", city: "Pune", kind: "both", pay: null,
+    must: ["Node.js", "MongoDB", "Python"], nice: [],
+    why: ["Node.js and MongoDB: used in CampusBites", "Close to your Backend target", "Posted 30 hours ago"],
+    gaps: ["No project shows Python yet; it's only on your skills list"],
+    contact: { email: "hello@tiffinbox.example", person_name: null, person_role: null, context: "site_generic", source_url: "https://tiffinbox.example",
+      evidence: "Say hello: hello@tiffinbox.example" },
+    flags: ["Only the company's general inbox (hello@tiffinbox.example) is published; no hiring address"],
+    summary: "Home-cooked meal subscriptions for office workers in Pune.",
+    post: "We're growing! Tiffinbox is looking for a Software Developer in Pune: interns or freshers (0-1 years). Node.js, MongoDB, Python.\n30h" },
+  { id: "o5", company: "Orbitly", domain: "orbitly.example", title: "Platform Engineer Intern", family: "devops",
+    bucket: "gaps", score: 42, age: 40, mode: "remote", city: null, kind: "internship", pay: [25000, 25000],
+    must: ["Docker", "Kubernetes", "Terraform", "AWS"], nice: [],
+    why: ["Docker: used in QueueKit", "Close to your Backend target", "Email to the hiring team (careers@orbitly.example), given in the post for applying"],
+    gaps: ["Asks for Kubernetes", "Asks for Terraform", "Asks for AWS"],
+    contact: { email: "careers@orbitly.example", person_name: null, person_role: null, context: "post_apply", source_url: null,
+      evidence: "Send your CV to careers@orbitly.example with the subject Platform Intern." },
+    summary: "Cost dashboards for small teams running on AWS.",
+    post: "Orbitly is hiring a remote Platform Engineer Intern (Rs 25,000 a month): Docker, Kubernetes, Terraform, AWS.\nSend your CV to careers@orbitly.example with the subject Platform Intern.\n40h" },
+];
+const oppState: Record<string, { prepare: Opportunity["prepare_status"]; startedAt?: number; app?: string; dismissed?: boolean }> =
+  Object.fromEntries(OPPS.map((o) => [o.id, { prepare: o.prepare ?? null, startedAt: o.prepare ? Date.now() : undefined }]));
+
+/** A letter being prepared in demo mode is ready about eight seconds later. */
+function tick() {
+  for (const o of OPPS) {
+    const st = oppState[o.id];
+    if (st.prepare === "running" && st.startedAt && Date.now() - st.startedAt > 8000) {
+      const id = "a-" + o.id;
+      if (!COS.some((c) => c.id === id)) {
+        COS.unshift({ id, company: o.company, domain: o.domain, role: o.title, status: "drafted", route: o.contact ? "email" : "portal",
+          draftAge: o.age, created: 0, poster: o.contact?.person_name ?? null, summary: o.summary, calls: o.flags ?? [] });
+      }
+      st.prepare = "done";
+      st.app = id;
+    }
+  }
+}
+
+function opportunity(o: Opp): Opportunity {
+  const st = oppState[o.id];
+  return {
+    id: o.id, job_id: "j" + o.id, score: o.score, bucket: o.bucket, why: o.why, gaps: o.gaps, decision: "keep", reasons: [],
+    overridden: false, track_key: o.family === "fullstack" ? "fullstack" : "backend", prepare_status: st.prepare, prepare_error: null,
+    seen_at: null, dismissed_at: st.dismissed ? ago(0) : null, route: o.contact ? "email" : "portal",
+    apply_to: o.contact?.email ?? o.portal ?? null, flags: o.flags ?? [], title: o.title, company_name: o.company,
+    role_family: o.family, employment_type: o.kind, work_mode: o.mode, city: o.city, exp_min: o.kind === "both" ? 0 : null,
+    exp_max: o.kind === "both" ? 1 : null, pay_min: o.pay?.[0] ?? null, pay_max: o.pay?.[1] ?? null,
+    pay_currency: o.pay ? "INR" : null, pay_period: o.pay ? "month" : null, skills_must: o.must, skills_nice: o.nice,
+    source: "paste", source_ref: null, visibility: "private", first_seen_at: ago(o.age), age_hours: o.age,
+    domain: o.domain, verification: "pass", contact_email: o.contact?.email ?? null, contact_name: o.contact?.person_name ?? null,
+    contact_role: o.contact?.person_role ?? null, contact_context: o.contact?.context ?? null,
+    application_id: st.app ?? null, application_status: st.app ? "drafted" : null,
+  };
+}
+
+function opportunityDetail(id: string): OpportunityDetail {
+  const o = OPPS.find((x) => x.id === id) ?? OPPS[0];
+  const contacts: ContactCandidate[] = o.contact ? [{ ...o.contact, id: "c" + o.id, chosen: true, where: WHERE[o.contact.context],
+    is_generic: !o.contact.person_name, domain_matches: true, confidence: o.contact.context === "post_apply" ? 0.95 : o.contact.context === "careers_page" ? 0.8 : 0.5 }] : [];
+  if (o.id === "o1") contacts.push({ id: "c1b", email: "careers@porchlight.example", person_name: null, person_role: null, context: "careers_page",
+    source_url: "https://porchlight.example/careers", evidence: "Write to careers@porchlight.example", is_generic: true, domain_matches: true,
+    confidence: 0.8, chosen: false, where: WHERE.careers_page });
+  return { ...opportunity(o), job: { raw_text: o.post, extracted: null },
+    company: { name: o.company, domain: o.domain, verification: "pass", business_summary: o.summary, flags: [] }, contacts };
+}
+
+function today(): Today {
+  tick();
+  const apps = COS.map(application);
+  const open = OPPS.map(opportunity).filter((o) => !o.dismissed_at && !o.application_id);
+  const busy = Object.values(oppState).filter((s) => s.prepare === "running").length;
+  return {
+    deadlines: [{ id: "e2", type: "interview", deadline_at: ahead(26), summary: "30-minute call with the CTO", application_id: "a4",
+      company_name: "Tessera Analytics", role_title: "Backend Engineer Intern" }],
+    ready: apps.filter((a) => ["drafted", "needs_review"].includes(a.status)).sort((x, y) => (x.age_at_draft_hours ?? 0) - (y.age_at_draft_hours ?? 0)),
+    groups: { strong: open.filter((o) => o.bucket === "strong"), good: open.filter((o) => o.bucket === "good"),
+      gaps: open.filter((o) => o.bucket === "gaps") },
+    decisions: LEADS.filter((l) => l.decision === "drop"),
+    number_gaps: [{ id: "b1", text: FACTBANK.items[0].bullets[0].text, item_name: "QueueKit" },
+      { id: "b4", text: FACTBANK.items[1].bullets[0].text, item_name: "CampusBites" }],
+    processing: busy,
+    me: { name: me.profile.name, career_stage: me.profile.career_stage, experience_years: me.profile.experience_years,
+      experience_band: me.profile.experience_band, target_families: me.preferences.target_families },
+  };
+}
+
 function route(method: string, path: string, body: unknown): unknown {
   const p = path.split("?")[0];
   if (method === "GET") {
     if (p === "/me") return me;
-    if (p === "/today") {
-      const apps = COS.map(application);
-      return {
-        deadlines: [{ id: "e2", type: "interview", deadline_at: ahead(26), summary: "30-minute call with the CTO", application_id: "a4",
-          company_name: "Tessera Analytics", role_title: "Backend Engineer Intern" }],
-        drafts: apps.filter((a) => ["drafted", "needs_review"].includes(a.status)).sort((x, y) => (x.age_at_draft_hours ?? 0) - (y.age_at_draft_hours ?? 0)),
-        decisions: LEADS.filter((l) => l.decision === "drop"),
-        gaps: [{ id: "b1", text: FACTBANK.items[0].bullets[0].text, item_name: "QueueKit" },
-               { id: "b4", text: FACTBANK.items[1].bullets[0].text, item_name: "CampusBites" }],
-        processing: 0,
-      };
+    if (p === "/today") return today();
+    if (p === "/opportunities") {
+      tick();
+      const all = OPPS.map(opportunity).filter((o) => !o.dismissed_at);
+      return { strong: all.filter((o) => o.bucket === "strong"), good: all.filter((o) => o.bucket === "good"),
+        gaps: all.filter((o) => o.bucket === "gaps") };
     }
+    if (p.startsWith("/opportunities/")) { tick(); return opportunityDetail(p.split("/")[2]); }
     if (p === "/applications") return COS.map(application);
     if (p.startsWith("/applications/")) return detail(p.split("/")[2]);
     if (p === "/leads") return LEADS;
@@ -276,6 +408,16 @@ function route(method: string, path: string, body: unknown): unknown {
     return { ok: true };
   }
   if (p === "/leads" && method === "POST") return { job_id: "jdemo", duplicate: false };
+  if (p.startsWith("/opportunities/") && p.endsWith("/prepare")) {
+    const st = oppState[p.split("/")[2]];
+    if (st && !st.app) { st.prepare = "running"; st.startedAt = Date.now(); }
+    return st?.app ? { application_id: st.app } : { queued: true };
+  }
+  if (p.startsWith("/opportunities/") && p.endsWith("/dismiss")) {
+    const st = oppState[p.split("/")[2]];
+    if (st) st.dismissed = (body as { dismissed?: boolean } | undefined)?.dismissed ?? true;
+    return { ok: true };
+  }
   if (p.startsWith("/applications/") && method === "PATCH") {
     const id = p.split("/")[2];
     const c = COS.find((x) => x.id === id);
