@@ -2,7 +2,7 @@
 // profile) and fictional companies on .example domains, so the signed-in UI can be reviewed
 // without an account. Development builds only; turned on at /demo and off from the banner.
 import type {
-  AppDetail, Application, FactBank, Lead, Me, ResumeLink, RoleOption, Track,
+  AppDetail, Application, Build, FactBank, Lead, Me, ResumeLink, Review, Track,
 } from "./types";
 
 const KEY = "jobreach-demo";
@@ -31,6 +31,10 @@ const me: Me = {
     links: [{ text: "github.com/aarav-mehta-example", url: "https://github.com/aarav-mehta-example" }],
     grad_date: "May 2027", batch_year: 2027, cgpa: 8.1, onboarding_step: "done", consent_version: "2026-10-01",
     github_url: "https://github.com/aarav-mehta-example", about: "Final-year IT student who likes backend work.",
+    career_stage: "student", experience_years: 0, experience_band: "intern", portfolio_url: null,
+    linkedin_url: "https://linkedin.com/in/aarav-mehta-example",
+    build: { status: "done", step: "done", kept: 21, left_out: 2, suggestions: [{ family: "devops", label: "DevOps and cloud",
+      why: "QueueKit runs in Docker with a GitHub Actions pipeline you set up, and CampusBites caches its menu in Redis." }] },
   },
   preferences: {
     role_types: ["backend", "sde", "fullstack"], open_to: ["internship"], locations: ["Pune", "Bengaluru", "Remote"],
@@ -38,7 +42,8 @@ const me: Me = {
     unpaid_remote_policy: "draft_with_floor", unpaid_onsite_policy: "drop", excluded_company_types: ["big_tech"],
     excluded_companies: [], freshness_ceiling_hours: 72, duration_flex: "Flexible on duration",
     start_date: "Immediately", signature_html: null, desired_roles: ["Backend Developer Intern"],
-    target_roles: ["Backend Developer Intern", "Full-stack Developer Intern"], pool_mode: "mix",
+    target_roles: ["Backend Developer Intern"], target_families: ["backend", "fullstack"], salary_floor: null,
+    notice_period: null,
   },
   counts: { items: 2, bullets: 6, tracks: 1, applications: 6 },
   consent_version: "2026-10-01", needs_consent: false,
@@ -152,7 +157,8 @@ const FACTBANK: FactBank = {
       stack: "Go, PostgreSQL, Docker, GitHub Actions", stack_label: "Stack", links: [], confirmed: true, sort: 0, bullets: [
         { id: "b1", item_id: "i1", text: "Built a Postgres-backed job queue for a college fest app that lost registration emails whenever its mail provider timed out during peak signups.", confirmed: true, has_metric: false, sort: 0 },
         { id: "b2", item_id: "i1", text: "Used SKIP LOCKED row claiming so four workers process jobs without double delivery, sustaining 300 jobs per second in a local load test.", confirmed: true, has_metric: true, sort: 1 },
-        { id: "b3", item_id: "i1", text: "Added exponential retry with a dead-letter table, cutting lost emails in the 2026 fest registration week from about 40 to zero.", confirmed: false, has_metric: true, sort: 2 },
+        { id: "b3", item_id: "i1", text: "Added exponential retry with a dead-letter table, cutting lost emails in the 2026 fest registration week from about 40 to zero.", confirmed: false, has_metric: true, sort: 2,
+          provenance: { ok: false, reason: "The number 40 is not in anything you gave us" } },
       ] },
     { id: "i2", key: "campusbites", kind: "project", name: "CampusBites", tagline: "Canteen Pre-order API", period: "Aug 2025 – Nov 2025",
       stack: "Node.js, Express, MongoDB, Redis", stack_label: "Stack", links: [], confirmed: true, sort: 1, bullets: [
@@ -172,24 +178,51 @@ const FACTBANK: FactBank = {
   facts: ["Go", "PostgreSQL", "Node.js", "Express", "Redis", "MongoDB", "Docker", "GitHub Actions", "Python", "Kubernetes"].map((t, i) => ({
     id: "sk" + i, kind: "skill", text: t, source: "upload", confirmed_at: t === "Kubernetes" ? null : ago(48),
     evidence_items: t === "Python" ? [] : ["queuekit"],
+    provenance: t === "Kubernetes" ? { ok: false, reason: "Kubernetes is not mentioned in anything you gave us" } : { ok: true, reason: null },
   })),
 };
 
-const TRACKS: Track[] = [{
-  id: "t1", key: "sde", label: "Backend / SDE", title_line: "Backend Developer · B.Tech Information Technology, 2027",
-  summary: "Final-year IT student who builds backend services that keep working under load: a job queue that stopped a fest app from losing emails, and a canteen ordering API used daily in the hostel.",
-  left_sections: [{ heading: "Projects", item_keys: ["queuekit", "campusbites"] }],
-  skills: [{ label: "Languages", items: "Go, Python" }, { label: "Backend", items: "Node.js, Express, Redis" }, { label: "Databases", items: "PostgreSQL, MongoDB" }],
-  scale: 1.04, approved: true, baseline: { id: "rbase", scale: 1.04, ats_score: 82.5 },
-}];
-
-let roles: RoleOption[] = [
-  { id: "o1", field: "backend", role: "Backend Developer Intern", fit: "strong", why: "QueueKit and CampusBites are both backend services you built and ran under real load.", evidence_item_keys: ["queuekit", "campusbites"], gaps: [], desired: true, selected: true, pool_jobs: 14, watched: true },
-  { id: "o2", field: "fullstack", role: "Full-stack Developer Intern", fit: "good", why: "CampusBites shipped an API students used daily; you led the coding club's web team.", evidence_item_keys: ["campusbites"], gaps: ["no frontend project of your own"], desired: false, selected: true, pool_jobs: 9, watched: true },
-  { id: "o3", field: "devops", role: "DevOps Intern", fit: "good", why: "QueueKit runs in Docker with a GitHub Actions pipeline you set up.", evidence_item_keys: ["queuekit"], gaps: ["no cloud deployment experience yet"], desired: false, selected: false, pool_jobs: 0, watched: false },
-  { id: "o4", field: "data_engineering", role: "Data Engineer Intern", fit: "stretch", why: "You know PostgreSQL well, but no project moves or models data at scale.", evidence_item_keys: [], gaps: ["no pipeline or warehouse project", "no Spark or Airflow"], desired: false, selected: false, pool_jobs: 3, watched: false },
-  { id: "o5", field: "ai_ml", role: "ML Engineer Intern", fit: "stretch", why: "You asked for ML roles, but none of your confirmed work involves a model yet.", evidence_item_keys: [], gaps: ["no ML project", "no Python data stack"], desired: true, selected: false, pool_jobs: 21, watched: true },
+const TRACKS: Track[] = [
+  {
+    id: "t1", key: "backend", label: "Backend", role_family: "backend", fit: "strong",
+    fit_why: "QueueKit and CampusBites are both backend services you built and ran under real load.", gaps: ["no cloud deployment yet"],
+    title_line: "Backend Developer · B.Tech Information Technology, 2027",
+    summary: "Final-year IT student who builds backend services that keep working under load: a job queue that stopped a fest app from losing emails, and a canteen ordering API used daily in the hostel.",
+    left_sections: [{ heading: "Projects", item_keys: ["queuekit", "campusbites"] }],
+    skills: [{ label: "Languages", items: "Go, Python" }, { label: "Backend", items: "Node.js, Express, Redis" }, { label: "Databases", items: "PostgreSQL, MongoDB" }],
+    scale: 1.04, approved: true, baseline: { id: "rbase", scale: 1.04, ats_score: 82.5 },
+  },
+  {
+    id: "t2", key: "fullstack", label: "Full stack", role_family: "fullstack", fit: "good",
+    fit_why: "CampusBites is a full product students used daily, but there is no frontend project of your own yet.", gaps: ["no React or frontend project"],
+    title_line: "Full-Stack Developer · B.Tech Information Technology, 2027",
+    summary: "Final-year IT student who ships working products: a canteen pre-order service used daily in the hostel, and the job queue behind a college fest's registrations.",
+    left_sections: [{ heading: "Projects", item_keys: ["campusbites", "queuekit"] }],
+    skills: [{ label: "Languages", items: "Go, Python" }, { label: "Web", items: "Node.js, Express" }, { label: "Data", items: "PostgreSQL, MongoDB, Redis" }],
+    scale: 1.06, approved: true, baseline: { id: "rbase2", scale: 1.06, ats_score: 80.1 },
+  },
 ];
+
+// The onboarding build, played forward a step each time the building screen asks.
+let buildTicks = 0;
+const BUILD_STEPS: NonNullable<Build["step"]>[] = ["reading", "reading", "checking", "checking", "writing", "writing", "writing", "rendering", "rendering"];
+
+function review(): Review {
+  return {
+    profile: { name: me.profile.name, career_stage: me.profile.career_stage, experience_years: me.profile.experience_years,
+      experience_band: me.profile.experience_band, build: me.profile.build, onboarding_step: "review",
+      grad_date: me.profile.grad_date, batch_year: me.profile.batch_year },
+    preferences: { target_families: me.preferences.target_families, desired_roles: me.preferences.desired_roles },
+    item_names: Object.fromEntries(FACTBANK.items.map((i) => [i.key, i.name])),
+    counts: { items: 2, bullets: 5, skills: 9 },
+    tracks: TRACKS,
+    left_out: [
+      { kind: "bullet", id: "b3", text: FACTBANK.items[0].bullets[2].text, context: "QueueKit", reason: "The number 40 is not in anything you gave us" },
+      { kind: "skill", id: "sk9", text: "Kubernetes", context: null, reason: "Kubernetes is not mentioned in anything you gave us" },
+    ],
+    suggestions: me.profile.build.suggestions ?? [],
+  };
+}
 
 function route(method: string, path: string, body: unknown): unknown {
   const p = path.split("?")[0];
@@ -212,14 +245,13 @@ function route(method: string, path: string, body: unknown): unknown {
     if (p === "/leads") return LEADS;
     if (p === "/factbank") return FACTBANK;
     if (p === "/tracks") return TRACKS;
-    if (p === "/onboarding/roles") return roles;
-    if (p === "/onboarding/interview") return [
-      { role: "assistant", content: "QueueKit took lost emails from about 40 to zero. How many students registered during that fest week?" },
-      { role: "user", content: "About 2,300 registrations, from the fest dashboard." },
-      { role: "assistant", content: "Did anyone other than you use CampusBites after launch, for example the canteen staff?" },
-    ];
-    if (p === "/onboarding/evidence") return FACTBANK.facts.filter((f) => f.confirmed_at).map((f) => ({
-      fact_id: f.id, skill: f.text, backed_by: f.evidence_items, backed: f.evidence_items.length > 0 }));
+    if (p === "/onboarding/review") return review();
+    if (p === "/onboarding/status") {
+      const step = BUILD_STEPS[Math.min(buildTicks++, BUILD_STEPS.length - 1)];
+      const done = buildTicks > BUILD_STEPS.length;
+      return { step: done ? "review" : "building", build: { status: done ? "done" : "running", step: done ? "done" : step,
+        ...(buildTicks > 3 ? { kept: 21, left_out: 2 } : {}) } };
+    }
     if (p === "/usage") return {
       steps: [
         { step: "s1_extract", calls: 8, input_tokens: 21400, output_tokens: 6100, cache_read_tokens: 9600, cost_usd: 0.0052, avg_latency_ms: 2900 },
@@ -230,15 +262,7 @@ function route(method: string, path: string, body: unknown): unknown {
       total: { cost_usd: 0.2487 },
     };
   }
-  if (p === "/onboarding/roles" && method === "POST") {
-    return { summary: "You are strongest at backend services that have to keep running under load. Full-stack and DevOps roles are within reach; ML would need a project first.", options: roles };
-  }
-  if (p === "/onboarding/roles/select") {
-    const b = body as { mode: string; option_ids: string[] };
-    roles = roles.map((o) => ({ ...o, selected: b.mode === "mix" ? o.fit !== "stretch" : b.option_ids.includes(o.id),
-      watched: o.watched || (b.mode === "mix" ? o.fit !== "stretch" : b.option_ids.includes(o.id)) }));
-    return roles;
-  }
+  if (p === "/onboarding/start") { buildTicks = 0; return { ok: true, families: ["backend", "fullstack"] }; }
   if (p.endsWith("/link") && method === "POST") {
     const rid = p.split("/")[2];
     links = { ...links, [rid]: { token: "demo" + rid, url: `http://localhost:8000/r/demo${rid}`, opens: 0, last_opened_at: null, created_at: new Date().toISOString() } };
@@ -251,7 +275,6 @@ function route(method: string, path: string, body: unknown): unknown {
     links = rest;
     return { ok: true };
   }
-  if (p === "/onboarding/interview" && method === "POST") return { question: "What did the canteen staff change after CampusBites launched?", done: false };
   if (p === "/leads" && method === "POST") return { job_id: "jdemo", duplicate: false };
   if (p.startsWith("/applications/") && method === "PATCH") {
     const id = p.split("/")[2];

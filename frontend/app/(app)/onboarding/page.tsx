@@ -1,395 +1,475 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { DragEvent, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { useMe } from "@/components/AppShell";
+import { BaselineGrid, LeftOutPanel, useReview } from "@/components/Baselines";
 import FactBankEditor from "@/components/FactBankEditor";
-import { IconCheck, IconFile, IconGithub, IconUpload, IconX } from "@/components/icons";
+import { IconAlert, IconCheck, IconFile, IconGithub, IconLink, IconUpload, IconX } from "@/components/icons";
 import PreferencesForm, { Toggle } from "@/components/PreferencesForm";
-import RolesPicker from "@/components/RolesPicker";
-import TracksEditor from "@/components/TracksEditor";
-import { Badge, Button, Card, ErrorNote, Field, inputCls } from "@/components/ui";
+import StageEditor from "@/components/StageEditor";
+import { Button, ErrorNote, Field, inputCls } from "@/components/ui";
 import { api } from "@/lib/api";
 import { isDemo } from "@/lib/demo";
 import { FIELDS } from "@/lib/fields";
-import type { Preferences, Profile } from "@/lib/types";
+import { STAGES, describe } from "@/lib/stage";
+import type { Build, Stage } from "@/lib/types";
 
-// The founder's flow: one sign-up form, an audit of everything given (facts, questions,
-// skills), the roles that audit supports, then preferences and the resumes for those roles.
-const STEPS = [
-  ["consent", "Your data", "You"], ["upload", "About you", "You"],
-  ["confirm", "Your facts", "Audit"], ["interview", "A few questions", "Audit"],
-  ["review", "New facts", "Audit"], ["evidence", "Skills check", "Audit"],
-  ["roles", "Your roles", "Roles"],
-  ["preferences", "Preferences", "Set up"], ["tracks", "Resumes", "Set up"],
-] as const;
-type Step = (typeof STEPS)[number][0];
-const PHASES = ["You", "Audit", "Roles", "Set up"] as const;
+// One form, a background build, one review. Nothing is asked in between (docs/plan-global-pool.md).
+type Screen = "form" | "building" | "review";
+const MAX_FAMILIES = 4;
+const list = (s: string) => s.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
 
 export default function Onboarding() {
   const { me, refresh } = useMe();
   const router = useRouter();
-  // Demo mode can open any step: /demo?to=/onboarding?step=roles
-  const saved: string = (isDemo() && new URLSearchParams(window.location.search).get("step")) || me.profile.onboarding_step;
-  const initial: Step = me.needs_consent ? "consent" : (STEPS.find(([k]) => k === saved)?.[0] ?? "upload");
-  const [step, setStep] = useState<Step>(initial);
-  const index = STEPS.findIndex(([k]) => k === step);
+  // Demo mode can open any screen: /demo?to=/onboarding?step=review
+  const demo = isDemo() ? new URLSearchParams(window.location.search).get("step") : null;
+  const saved = me.profile.onboarding_step;
+  const [screen, setScreen] = useState<Screen>(
+    (demo as Screen | null) ?? (saved === "building" ? "building" : saved === "review" ? "review" : "form"));
+  const go = (s: Screen) => { setScreen(s); window.scrollTo(0, 0); };
 
-  const go = async (s: Step | "done") => {
-    await api.put("/profile", { onboarding_step: s });
-    if (s === "done") { await refresh(); router.replace("/today"); return; }
-    setStep(s);
-    window.scrollTo(0, 0);
-  };
+  if (screen === "building") {
+    return <Building onDone={async () => { await refresh(); go("review"); }}
+      onBack={async () => { await api.put("/profile", { onboarding_step: "form" }); await refresh(); go("form"); }} />;
+  }
+  if (screen === "review") {
+    return <ReviewScreen onFinish={async () => { await api.post("/onboarding/finish"); await refresh(); router.replace("/today"); }} />;
+  }
+  return <OneForm onStarted={() => go("building")} />;
+}
 
+// ------------------------------------------------------------------ the form
+
+function Section({ title, hint, optional, children }: { title: string; hint?: ReactNode; optional?: boolean; children: ReactNode }) {
   return (
-    <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14">
-      {/* Phone: where you are, in one line. */}
-      <div className="lg:hidden">
-        <div className="flex items-baseline justify-between text-sm">
-          <span className="font-semibold">{STEPS[index][2]}: {STEPS[index][1]}</span>
-          <span className="tabular-nums text-muted">{index + 1} of {STEPS.length}</span>
-        </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sunken">
-          <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${((index + 1) / STEPS.length) * 100}%` }} />
-        </div>
-      </div>
-
-      {/* Desktop: the whole journey, grouped. */}
-      <nav aria-label="Setup steps" className="hidden lg:block">
-        <ol className="sticky top-8 flex flex-col gap-5">
-          {PHASES.map((phase) => (
-            <li key={phase}>
-              <p className="mb-1.5 text-xs font-semibold text-muted">{phase}</p>
-              <ol className="flex flex-col">
-                {STEPS.map(([k, label, ph], i) => ph !== phase ? null : (
-                  <li key={k}>
-                    <button disabled={me.needs_consent} onClick={() => setStep(k)} aria-current={k === step ? "step" : undefined}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors disabled:cursor-default
-                        ${k === step ? "bg-accent-soft font-semibold text-accent" : i < index ? "text-text-2 hover:bg-sunken" : "text-muted hover:bg-sunken"}`}>
-                      <span className={`grid size-5 shrink-0 place-items-center rounded-full border text-[10px] font-bold
-                        ${i < index ? "border-accent bg-accent text-white dark:text-[#0b1020]" : k === step ? "border-accent text-accent" : "border-border-strong"}`}>
-                        {i < index ? <IconCheck size={12} strokeWidth={3} /> : i + 1}
-                      </span>
-                      {label}
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            </li>
-          ))}
-        </ol>
-      </nav>
-
-      <div className="min-w-0">
-        {step === "consent" && <Consent version={me.consent_version} onDone={async () => { await refresh(); await go("upload"); }} />}
-        {step === "upload" && <Upload prefs={me.preferences} profile={me.profile} onDone={() => go("confirm")} />}
-        {step === "confirm" && (
-          <Stage title="Check what we found" next={() => go("interview")}
-            intro="This is what we read from everything you gave us. Nothing is used until you tick it as true. Fix anything that is wrong or overstated.">
-            <FactBankEditor />
-          </Stage>
-        )}
-        {step === "interview" && <Interview onDone={() => go("review")} />}
-        {step === "review" && <Review onDone={() => go("evidence")} />}
-        {step === "evidence" && <Evidence onDone={() => go("roles")} />}
-        {step === "roles" && (
-          <Stage title="Here's what you can apply for"
-            intro="From everything you confirmed: the roles your work backs, including the ones you asked for, each with an honest fit. Take the mixed pool or pick roles yourself. Roles our job pool doesn't cover yet start being collected daily.">
-            <RolesPicker initialMode={me.preferences.pool_mode ?? "mix"} saveLabel="Continue with these roles"
-              onSaved={async () => { await refresh(); await go("preferences"); }} />
-          </Stage>
-        )}
-        {step === "preferences" && (
-          <Stage title="Where, when and for how much" intro="These rules decide which openings you see, and what every email may say about your availability.">
-            <PreferencesForm prefs={me.preferences} profile={me.profile} submitLabel="Save and continue"
-              onSaved={async () => { await refresh(); await go("tracks"); }} />
-          </Stage>
-        )}
-        {step === "tracks" && <Tracks onDone={() => go("done")} />}
-      </div>
-    </div>
+    <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+      <h2 className="text-[17px] font-bold tracking-tight">
+        {title} {optional && <span className="text-sm font-normal text-muted">(optional)</span>}
+      </h2>
+      {hint && <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted">{hint}</p>}
+      <div className="mt-4">{children}</div>
+    </section>
   );
 }
 
-function Stage({ title, intro, next, nextLabel = "Continue", children }:
-  { title: string; intro?: string; next?: () => void; nextLabel?: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-[26px] font-bold leading-tight tracking-[-0.02em] sm:text-[30px]">{title}</h1>
-        {intro && <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">{intro}</p>}
-      </div>
-      {children}
-      {next && <Button className="self-start min-h-10 px-5" onClick={next}>{nextLabel}</Button>}
-    </div>
-  );
-}
-
-function Consent({ version, onDone }: { version: string; onDone: () => void }) {
-  const [ok, setOk] = useState(false);
-  const [busy, setBusy] = useState(false);
-  return (
-    <Stage title="Before we start">
-      <div className="paper max-w-2xl p-6 text-[15px] leading-relaxed sm:p-8">
-        <p>Jobreach stores what you give it so it can build resumes and draft emails for you:</p>
-        <ul className="my-3 flex flex-col gap-1.5 pl-1">
-          {["your resume text, contact details, grades and the facts you confirm;",
-            "job posts you paste (private to you) and the resumes and drafts made from them;",
-            "replies and outcomes you log."].map((t) => (
-            <li key={t} className="flex gap-2.5"><IconCheck size={17} className="mt-1 shrink-0 text-accent" />{t}</li>
-          ))}
-        </ul>
-        <p className="text-text-2">
-          It is used only to produce your resumes and drafts. To read posts and write drafts, text is processed by
-          OpenAI models through Microsoft&apos;s Azure OpenAI service, which does not use it to train models.
-          Jobreach never sends an email or submits an application for you. You can delete your account and all of
-          your data at any time from Profile.
-        </p>
-        <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-xl border border-border-strong p-4 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
-          <input type="checkbox" className="mt-0.5 size-5 accent-[var(--accent)]" checked={ok} onChange={(e) => setOk(e.target.checked)} />
-          <span>I understand and agree. <span className="text-muted">Notice version {version}.</span></span>
-        </label>
-      </div>
-      <Button className="self-start min-h-10 px-5" disabled={!ok} busy={busy}
-        onClick={async () => { setBusy(true); await api.post("/consent", { version }); onDone(); }}>
-        Agree and continue
-      </Button>
-    </Stage>
-  );
-}
-
-function Upload({ prefs, profile, onDone }: { prefs: Preferences; profile: Profile; onDone: () => void }) {
+function OneForm({ onStarted }: { onStarted: () => void }) {
+  const { me } = useMe();
+  const p = me.preferences;
   const input = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [drag, setDrag] = useState(false);
-  const [about, setAbout] = useState(profile.about ?? "");
-  const [projects, setProjects] = useState("");
-  const [github, setGithub] = useState(profile.github_url ?? "");
-  const [links, setLinks] = useState("");
-  const [fields, setFields] = useState<string[]>(prefs.role_types);
-  const [roles, setRoles] = useState(prefs.desired_roles.join(", "));
-  const [busy, setBusy] = useState<string | null>(null);
+  const [stage, setStage] = useState<Stage | null>(me.profile.career_stage);
+  const [families, setFamilies] = useState<string[]>(p.target_families ?? []);
+  const [titles, setTitles] = useState((p.desired_roles ?? []).join(", "));
+  const [github, setGithub] = useState(me.profile.github_url ?? "");
+  const [portfolio, setPortfolio] = useState(me.profile.portfolio_url ?? "");
+  const [linkedin, setLinkedin] = useState(me.profile.linkedin_url ?? "");
+  const [otherLinks, setOtherLinks] = useState("");
+  const [notes, setNotes] = useState(me.profile.about ?? "");
+  const [modes, setModes] = useState({ remote_ok: p.remote_ok, hybrid_ok: p.hybrid_ok, onsite_ok: p.onsite_ok });
+  const [cities, setCities] = useState(p.locations.join(", "));
+  const [openTo, setOpenTo] = useState<string[] | null>(null);           // null: follow the stage
+  const [skipBigTech, setSkipBigTech] = useState<boolean | null>(null);  // null: follow the stage
+  const [stipend, setStipend] = useState(p.stipend_floor ? String(p.stipend_floor) : "");
+  const [salary, setSalary] = useState(p.salary_floor ? String(p.salary_floor / 100000) : "");
+  const [notice, setNotice] = useState(p.notice_period ?? "");
+  const [start, setStart] = useState("");
+  const [skip, setSkip] = useState(p.excluded_companies.join(", "));
+  const [agreed, setAgreed] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
 
-  const add = (list: FileList | null) => {
-    const ok = Array.from(list ?? []).filter((f) => /\.(pdf|docx|txt)$/i.test(f.name));
-    setFiles((cur) => [...cur, ...ok.filter((f) => !cur.some((c) => c.name === f.name && c.size === f.size))]);
+  const student = stage === "student";
+  const open = openTo ?? (student ? ["internship"] : ["full_time"]);
+  const bigTech = skipBigTech ?? student;
+  const add = (l: FileList | null) => {
+    const ok = Array.from(l ?? []).filter((f) => /\.(pdf|docx|txt)$/i.test(f.name));
+    setFiles((cur) => [...cur, ...ok.filter((f) => !cur.some((c) => c.name === f.name && c.size === f.size))].slice(0, 6));
   };
   const onDrop = (e: DragEvent) => { e.preventDefault(); setDrag(false); add(e.dataTransfer.files); };
+  const toggleFamily = (k: string) => setFamilies(families.includes(k) ? families.filter((x) => x !== k)
+    : families.length < MAX_FAMILIES ? [...families, k] : families);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setNote(null);
+    if (!stage) return setError("Tell us where you are: student, recent graduate or experienced.");
+    if (families.length === 0 && !titles.trim()) return setError("Pick at least one kind of role.");
+    if (files.length === 0 && notes.trim().length < 80 && !github.trim())
+      return setError("Upload your CV, or write a few lines about your work, so there is something to build from.");
+    if (me.needs_consent && !agreed) return setError("Please read and agree to how your data is used.");
     const form = new FormData();
     for (const f of files) form.append("files", f);
-    form.append("about", about);
-    form.append("projects", projects);
-    form.append("github", github);
-    form.append("links", links);
-    form.append("fields", fields.join(","));
-    form.append("roles", roles);
-    try {
-      setBusy(github.trim() ? "Reading your files and GitHub…" : "Reading your files…");
-      const r = await api.upload<{ github: { username: string | null; read: boolean } }>("/onboarding/upload", form);
-      if (r.github.username && !r.github.read) setNote("Couldn't read your public GitHub repositories right now; carrying on with the rest.");
-      setBusy("Auditing everything you gave us. About a minute…");
-      await api.post("/onboarding/extract");
-      onDone();
-    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
-    setBusy(null);
+    form.append("form", JSON.stringify({
+      stage, families, titles: list(titles), github, portfolio, linkedin, other_links: otherLinks, notes,
+      open_to: open, ...modes, locations: list(cities),
+      stipend_floor: stipend ? Number(stipend) : null,
+      salary_floor: salary ? Math.round(Number(salary) * 100000) : null,
+      notice_period: notice || null, start_date: start || null, excluded_companies: list(skip),
+      skip_big_tech: bigTech, consent_version: me.needs_consent ? me.consent_version : null,
+    }));
+    setBusy(true);
+    try { await api.upload("/onboarding/start", form); onStarted(); }
+    catch (err) { setError(err instanceof Error ? err.message : String(err)); setBusy(false); }
   }
 
   return (
-    <Stage title="Tell us about you, once"
-      intro="Everything here is audited into facts you confirm, and every resume and email is built only from those. Add what your resume leaves out: freelance or client work, things you deployed and who uses them, hackathons, clubs.">
-      <form onSubmit={submit} className="flex max-w-3xl flex-col gap-6">
-        <Card title="Your work">
+    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12">
+      <form onSubmit={submit} className="flex min-w-0 flex-col gap-5">
+        <header className="mb-2">
+          <h1 className="text-[30px] font-bold leading-tight tracking-[-0.025em] sm:text-[36px]">Tell us once</h1>
+          <p className="mt-2 max-w-2xl text-[16px] leading-relaxed text-text-2">
+            One form. We read your CV, keep every line we can find in it, and build a one-page resume for each kind of
+            role you want. There is no interview.
+          </p>
+        </header>
+
+        <Section title="Your CV" hint="Every version you have: each may mention work the others don't. PDF, DOCX or TXT, up to six files.">
+          <label onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}
+            className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors
+              ${drag ? "border-accent bg-accent-soft" : "border-border-strong hover:border-accent hover:bg-sunken/60"}`}>
+            <span className="grid size-11 place-items-center rounded-full bg-accent-soft text-accent"><IconUpload size={22} /></span>
+            <span className="text-[15px] font-semibold">Drop your CV here, or <span className="text-accent underline underline-offset-2">choose files</span></span>
+            <input ref={input} type="file" multiple accept=".pdf,.docx,.txt" className="sr-only" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
+          </label>
+          {files.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {files.map((f) => (
+                <li key={f.name + f.size} className="inline-flex items-center gap-2 rounded-lg border border-border bg-sunken py-1.5 pl-2.5 pr-1.5 text-sm">
+                  <IconFile size={16} className="text-accent" /> {f.name}
+                  <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((x) => x !== f))}
+                    className="grid size-6 place-items-center rounded-md text-muted hover:bg-surface hover:text-bad"><IconX size={14} /></button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title="Where you are">
+          <div role="radiogroup" aria-label="Where you are" className="grid gap-2 sm:grid-cols-3">
+            {STAGES.map((x) => (
+              <button key={x.key} type="button" role="radio" aria-checked={stage === x.key} onClick={() => setStage(x.key)}
+                className={`rounded-xl border px-4 py-3.5 text-left transition-colors ${stage === x.key ? "border-accent bg-accent-soft" : "border-border-strong bg-surface hover:border-accent"}`}>
+                <span className="block font-semibold">{x.label}</span>
+                <span className="block text-[13px] text-muted">{x.hint}</span>
+              </button>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="Roles you want" hint={`Up to ${MAX_FAMILIES}. You'll get one resume for each, and openings matched to them.`}>
+          <div className="flex flex-wrap gap-2">
+            {FIELDS.map(([k, l]) => <Toggle key={k} on={families.includes(k)} set={() => toggleFamily(k)}>{l}</Toggle>)}
+          </div>
+          <p className="mt-2 text-xs tabular-nums text-muted">{families.length} of {MAX_FAMILIES} chosen</p>
+          <div className="mt-4">
+            <Field label="Specific job titles (optional)" hint="Comma separated, for example: SDE II, ML Engineer Intern. We place each in the right kind of role.">
+              <input className={inputCls} value={titles} onChange={(e) => setTitles(e.target.value)} />
+            </Field>
+          </div>
+        </Section>
+
+        <Section title="Links" hint="We read your public GitHub repositories and your portfolio page. Your LinkedIn link goes on your resume, but we never read LinkedIn: to include it, save your profile as a PDF from LinkedIn and add it above.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="GitHub">
+              <span className="relative">
+                <IconGithub size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input className={`${inputCls} pl-9`} placeholder="github.com/your-username" value={github} onChange={(e) => setGithub(e.target.value)} />
+              </span>
+            </Field>
+            <Field label="Portfolio">
+              <span className="relative">
+                <IconLink size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input className={`${inputCls} pl-9`} placeholder="your-site.com" value={portfolio} onChange={(e) => setPortfolio(e.target.value)} />
+              </span>
+            </Field>
+            <Field label="LinkedIn">
+              <input className={inputCls} placeholder="linkedin.com/in/you" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+            </Field>
+            <Field label="Other links" hint="LeetCode, Kaggle, a live project. One per line.">
+              <textarea className={inputCls} rows={2} value={otherLinks} onChange={(e) => setOtherLinks(e.target.value)} />
+            </Field>
+          </div>
+        </Section>
+
+        <Section title="Anything your CV leaves out" optional
+          hint="Projects, freelance or client work, things you deployed and who used them, hackathons, roles in clubs. Plain words are fine; real numbers only if you know them.">
+          <textarea className={inputCls} rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </Section>
+
+        <Section title="What you're looking for" hint="These decide which openings you see. You can change them any time.">
           <div className="flex flex-col gap-5">
-            <div>
-              <p className="mb-1.5 text-sm font-semibold">All your CVs</p>
-              <label onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={onDrop}
-                className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors
-                  ${drag ? "border-accent bg-accent-soft" : "border-border-strong hover:border-accent hover:bg-sunken/60"}`}>
-                <span className="grid size-11 place-items-center rounded-full bg-accent-soft text-accent"><IconUpload size={22} /></span>
-                <span className="text-[15px] font-semibold">Drop CVs here, or <span className="text-accent underline underline-offset-2">choose files</span></span>
-                <span className="text-[13px] text-muted">PDF, DOCX or TXT. Every version you have: each may mention something the others don&apos;t.</span>
-                <input ref={input} type="file" multiple accept=".pdf,.docx,.txt" className="sr-only" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
-              </label>
-              {files.length > 0 && (
-                <ul className="mt-3 flex flex-wrap gap-2">
-                  {files.map((f) => (
-                    <li key={f.name + f.size} className="inline-flex items-center gap-2 rounded-lg border border-border bg-sunken py-1.5 pl-2.5 pr-1.5 text-sm">
-                      <IconFile size={16} className="text-accent" /> {f.name}
-                      <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((x) => x !== f))}
-                        className="grid size-6 place-items-center rounded-md text-muted hover:bg-surface hover:text-bad"><IconX size={14} /></button>
-                    </li>
-                  ))}
-                </ul>
+            <div className="flex flex-wrap gap-x-8 gap-y-4">
+              <Field label="Open to">
+                <div className="flex gap-2">
+                  <Toggle on={open.includes("internship")} set={() => setOpenTo(open.includes("internship") ? open.filter((x) => x !== "internship") : [...open, "internship"])}>Internships</Toggle>
+                  <Toggle on={open.includes("full_time")} set={() => setOpenTo(open.includes("full_time") ? open.filter((x) => x !== "full_time") : [...open, "full_time"])}>Full-time</Toggle>
+                </div>
+              </Field>
+              <Field label="Work mode">
+                <div className="flex gap-2">
+                  <Toggle on={modes.remote_ok} set={(v) => setModes({ ...modes, remote_ok: v })}>Remote</Toggle>
+                  <Toggle on={modes.hybrid_ok} set={(v) => setModes({ ...modes, hybrid_ok: v })}>Hybrid</Toggle>
+                  <Toggle on={modes.onsite_ok} set={(v) => setModes({ ...modes, onsite_ok: v })}>Onsite</Toggle>
+                </div>
+              </Field>
+            </div>
+            <Field label="Cities for onsite or hybrid work" hint='Comma separated, or "Anywhere in India".'>
+              <input className={inputCls} value={cities} onChange={(e) => setCities(e.target.value)} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {student ? (
+                <>
+                  <Field label="Lowest stipend you'd take (per month)" hint="Posts offering less are skipped.">
+                    <input className={inputCls} type="number" min="0" value={stipend} onChange={(e) => setStipend(e.target.value)} />
+                  </Field>
+                  <Field label="Earliest start"><input className={inputCls} placeholder="For example: January 2027" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
+                </>
+              ) : (
+                <>
+                  <Field label="Lowest salary you'd take (lakh per year)" hint="Posts offering less are skipped.">
+                    <input className={inputCls} type="number" min="0" step="0.5" value={salary} onChange={(e) => setSalary(e.target.value)} />
+                  </Field>
+                  {stage === "experienced"
+                    ? <Field label="Notice period"><input className={inputCls} placeholder="For example: 30 days" value={notice} onChange={(e) => setNotice(e.target.value)} /></Field>
+                    : <Field label="Earliest start"><input className={inputCls} placeholder="For example: Immediately" value={start} onChange={(e) => setStart(e.target.value)} /></Field>}
+                </>
               )}
             </div>
-            <Field label="About you" hint="Plain words are fine. What you built, for whom, and any real numbers you know.">
-              <textarea className={inputCls} rows={4} value={about} onChange={(e) => setAbout(e.target.value)} />
-            </Field>
-            <Field label="Your projects" hint="One per paragraph: what it does, the stack, who used it, a live link if there is one.">
-              <textarea className={inputCls} rows={4} value={projects} onChange={(e) => setProjects(e.target.value)} />
-            </Field>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="GitHub" hint="We read your public repositories, not forks.">
-                <span className="relative">
-                  <IconGithub size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-                  <input className={`${inputCls} pl-9`} placeholder="github.com/your-username" value={github} onChange={(e) => setGithub(e.target.value)} />
-                </span>
-              </Field>
-              <Field label="Other links" hint="Portfolio, LeetCode, Kaggle, one per line.">
-                <textarea className={inputCls} rows={2} value={links} onChange={(e) => setLinks(e.target.value)} />
+            <div className="flex flex-col gap-3">
+              <Toggle on={bigTech} set={(v) => setSkipBigTech(v)}>Skip big tech companies</Toggle>
+              <Field label="Companies to skip" hint="Comma separated.">
+                <input className={inputCls} value={skip} onChange={(e) => setSkip(e.target.value)} />
               </Field>
             </div>
           </div>
-        </Card>
-        <Card title="What you want">
-          <div className="flex flex-col gap-5">
-            <Field label="Fields" hint="Pick any that interest you. The audit tells you how well your work backs each one.">
-              <div className="flex flex-wrap gap-2">
-                {FIELDS.map(([k, l]) => (
-                  <Toggle key={k} on={fields.includes(k)}
-                    set={() => setFields(fields.includes(k) ? fields.filter((x) => x !== k) : [...fields, k])}>{l}</Toggle>
-                ))}
-              </div>
-            </Field>
-            <Field label="Roles you want" hint="Comma separated, for example: Backend Developer Intern, ML Engineer Intern.">
-              <input className={inputCls} value={roles} onChange={(e) => setRoles(e.target.value)} />
-            </Field>
-          </div>
-        </Card>
+        </Section>
+
+        {me.needs_consent && (
+          <section className="paper p-5 text-[15px] leading-relaxed sm:p-6">
+            <h2 className="text-[17px] font-bold tracking-tight">How your data is used</h2>
+            <p className="mt-2">Jobreach stores what you give it so it can build resumes and draft emails for you:</p>
+            <ul className="my-3 flex flex-col gap-1.5 pl-1">
+              {["your resume text, contact details, grades and the facts you confirm;",
+                "job posts you paste (private to you) and the resumes and drafts made from them;",
+                "replies and outcomes you log."].map((t) => (
+                <li key={t} className="flex gap-2.5"><IconCheck size={17} className="mt-1 shrink-0 text-accent" />{t}</li>
+              ))}
+            </ul>
+            <p className="text-text-2">
+              It is used only to produce your resumes and drafts. To read posts and write drafts, text is processed by
+              OpenAI models through Microsoft&apos;s Azure OpenAI service, which does not use it to train models.
+              Jobreach never sends an email or submits an application for you. You can delete your account and all of
+              your data at any time from Profile.
+            </p>
+            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-border-strong p-4 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">
+              <input type="checkbox" className="mt-0.5 size-5 accent-[var(--accent)]" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+              <span>I understand and agree. <span className="text-muted">Notice version {me.consent_version}.</span></span>
+            </label>
+          </section>
+        )}
+
         <ErrorNote error={error} />
-        {note && <p className="rounded-[10px] bg-warn-soft px-3.5 py-2.5 text-sm text-warn">{note}</p>}
-        <Button type="submit" className="self-start min-h-11 px-6 text-[15px]" busy={!!busy}>{busy ?? "Audit my profile"}</Button>
+        <div className="flex flex-wrap items-center gap-4">
+          <Button type="submit" busy={busy} className="min-h-12 px-7 text-[16px]">Build my resumes</Button>
+          <span className="text-sm text-muted">Takes a minute or two.</span>
+        </div>
       </form>
-    </Stage>
+
+      <aside className="hidden lg:block">
+        <div className="sticky top-8 flex flex-col gap-5 rounded-2xl bg-inland p-6 ring-1 ring-inland-edge">
+          <h2 className="font-bold tracking-tight">What happens next</h2>
+          {[
+            ["We read what you gave us", "Your CV, notes, GitHub and portfolio."],
+            ["Every line is checked against it", "Anything we can't find stays off your resumes. We don't ask you about it."],
+            ["One resume for each kind of role", "Each fits on one page. You see them all, and change anything, before you start."],
+          ].map(([t, d]) => (
+            <div key={t} className="flex gap-3">
+              <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-surface text-accent ring-1 ring-inland-edge"><IconCheck size={14} /></span>
+              <div>
+                <p className="text-sm font-semibold">{t}</p>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-text-2">{d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
+    </div>
   );
 }
 
-function Interview({ onDone }: { onDone: () => void }) {
-  const [history, setHistory] = useState<{ role: string; content: string }[]>([]);
-  const [question, setQuestion] = useState<string | null>(null);
-  const [answer, setAnswer] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// ------------------------------------------------------------------ building
 
-  const turn = useCallback(async (a: string | null) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await api.post<{ question: string | null; done: boolean }>("/onboarding/interview", { answer: a });
-      setHistory(await api.get("/onboarding/interview"));
-      setQuestion(r.question);
-      setDone(r.done);
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
-    setBusy(false);
+const STEPS: [NonNullable<Build["step"]>, string][] = [
+  ["reading", "Reading your CV and links"],
+  ["checking", "Checking every line against what you gave us"],
+  ["writing", "Writing a resume for each kind of role"],
+  ["rendering", "Fitting each one to a single page"],
+];
+
+function Building({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+  const [build, setBuild] = useState<Build | null>(null);
+  const done = useRef(onDone);
+  useEffect(() => { done.current = onDone; });
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const s = await api.get<{ step: string; build: Build }>("/onboarding/status");
+        if (!alive) return;
+        setBuild(s.build);
+        if (s.build.status === "done" || s.step === "review" || s.step === "done") { setTimeout(() => alive && done.current(), 600); return; }
+        if (s.build.status !== "failed") setTimeout(tick, 1500);
+      } catch { if (alive) setTimeout(tick, 3000); }
+    };
+    tick();
+    return () => { alive = false; };
   }, []);
 
-  useEffect(() => {
-    api.get<{ role: string; content: string }[]>("/onboarding/interview").then((h) => {
-      setHistory(h);
-      const last = h[h.length - 1];
-      if (last?.role === "assistant") setQuestion(last.content);
-      else turn(null);
-    });
-  }, [turn]);
-
+  const failed = build?.status === "failed";
+  const at = STEPS.findIndex(([k]) => k === build?.step);
+  const finished = build?.status === "done";
   return (
-    <Stage title="A few questions"
-      intro="Short questions to find strong, true evidence your resume is missing. If you don't know a number, say so: nothing is ever estimated.">
-      <div className="flex max-w-2xl flex-col gap-4">
-        {history.map((m, i) => m.role === "assistant" ? (
-          <p key={i} className="font-letter text-[17px] leading-relaxed">{m.content}</p>
-        ) : (
-          <p key={i} className="ml-8 self-end rounded-2xl rounded-br-md bg-accent px-4 py-2.5 text-[15px] text-white dark:text-[#0b1020]">{m.content}</p>
-        ))}
-        {done && <p className="inline-flex items-center gap-2 font-semibold text-ok"><IconCheck size={18} /> That&apos;s everything for now.</p>}
-        {!done && question && (
-          <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); if (answer.trim()) { turn(answer); setAnswer(""); } }}>
-            <textarea className={inputCls} rows={3} value={answer} onChange={(e) => setAnswer(e.target.value)}
-              placeholder="Your answer. “I don't know” is a fine answer." />
-            <div className="flex gap-2">
-              <Button type="submit" busy={busy}>Answer</Button>
-              <Button type="button" variant="ghost" disabled={busy} onClick={onDone}>Skip the rest</Button>
-            </div>
-          </form>
-        )}
-        {busy && !question && <p className="text-muted">Thinking of a question…</p>}
-        <ErrorNote error={error} />
-        {done && <Button className="self-start" onClick={onDone}>Continue</Button>}
-      </div>
-    </Stage>
-  );
-}
-
-function Review({ onDone }: { onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [key, setKey] = useState(0);
-  return (
-    <Stage title="What the questions found" next={onDone}
-      intro="New facts from your answers appear under Other facts. Tick the true ones, then write bullets from them. Bullets can only restate confirmed facts, with the same numbers.">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="secondary" busy={busy} onClick={async () => {
-          setBusy(true);
-          const r = await api.post<{ proposed: number }>("/onboarding/bullets");
-          setMsg(r.proposed ? `${r.proposed} bullet${r.proposed === 1 ? "" : "s"} proposed below. Tick the ones you agree with.` : "No confirmed new facts need bullets.");
-          setKey((k) => k + 1);
-          setBusy(false);
-        }}>Write bullets from confirmed facts</Button>
-        {msg && <span className="text-sm text-muted">{msg}</span>}
-      </div>
-      <FactBankEditor key={key} />
-    </Stage>
-  );
-}
-
-function Evidence({ onDone }: { onDone: () => void }) {
-  const [rows, setRows] = useState<{ fact_id: string; skill: string; backed_by: string[]; backed: boolean }[] | null>(null);
-  const load = useCallback(() => api.get<typeof rows>("/onboarding/evidence").then(setRows), []);
-  useEffect(() => { load(); }, [load]);
-  const unbacked = rows?.filter((r) => !r.backed) ?? [];
-  const backed = rows?.filter((r) => r.backed) ?? [];
-  return (
-    <Stage title="Every skill needs evidence" next={onDone}
-      intro="A skill no project, job or role mentions is an interview risk: you may be asked about it. Remove it, or add the work that shows it.">
-      <div className="max-w-2xl">
-        <p className="text-[15px]"><span className="text-2xl font-bold tabular-nums">{backed.length}</span>
-          <span className="text-muted"> of {rows?.length ?? "…"} skills are backed by your confirmed work.</span></p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {backed.map((r) => <Badge key={r.fact_id} tone="ok"><IconCheck size={12} /> {r.skill}</Badge>)}
-        </div>
-        {unbacked.length > 0 && (
-          <ul className="mt-6 flex flex-col divide-y divide-border rounded-2xl border border-warn/30 bg-warn-soft/40">
-            {unbacked.map((r) => (
-              <li key={r.fact_id} className="flex items-center gap-3 px-4 py-3 text-sm">
-                <span className="flex-1"><span className="font-semibold">{r.skill}</span> <span className="text-muted">appears in no project or role</span></span>
-                <Button variant="ghost" onClick={async () => { await api.del(`/facts/${r.fact_id}`); load(); }}>Remove</Button>
+    <div className="mx-auto grid max-w-4xl items-center gap-12 py-6 md:grid-cols-[minmax(0,1fr)_260px]">
+      <div>
+        <h1 className="text-[30px] font-bold leading-tight tracking-[-0.025em] sm:text-[36px]">
+          {failed ? "Something went wrong" : "Building your resumes"}
+        </h1>
+        <p className="mt-2 text-[16px] text-text-2">
+          {failed ? "Nothing you gave us is lost. Go back to the form and try again." : "This takes a minute or two. You can leave this page; it carries on."}
+        </p>
+        <ol className="mt-8 flex flex-col gap-4" aria-live="polite">
+          {STEPS.map(([k, label], i) => {
+            const state = finished || i < at ? "done" : i === at && !failed ? "active" : i === at && failed ? "failed" : "waiting";
+            return (
+              <li key={k} className="flex items-center gap-3.5">
+                <span className={`grid size-8 shrink-0 place-items-center rounded-full border-2 transition-colors duration-500
+                  ${state === "done" ? "border-ok bg-ok text-white dark:text-[#0b1020]" : state === "active" ? "border-accent text-accent" :
+                    state === "failed" ? "border-bad text-bad" : "border-border-strong text-muted"}`}>
+                  {state === "done" ? <IconCheck size={16} strokeWidth={2.5} /> : state === "active" ? <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    : state === "failed" ? <IconAlert size={15} /> : <span className="text-xs font-bold">{i + 1}</span>}
+                </span>
+                <span className={`text-[16px] ${state === "waiting" ? "text-muted" : "font-semibold"}`}>{label}</span>
               </li>
-            ))}
-          </ul>
+            );
+          })}
+        </ol>
+        {(build?.kept ?? 0) > 0 && !failed && (
+          <p className="mt-6 text-sm text-muted">
+            Kept {build!.kept} lines{build!.left_out ? `, left out ${build!.left_out} we couldn't find in your documents` : ""}.
+          </p>
+        )}
+        {build?.github && !build.github.read && <p className="mt-2 text-sm text-warn">We couldn&apos;t read GitHub just now; carrying on with the rest.</p>}
+        {failed && (
+          <div className="mt-6 flex flex-col gap-3">
+            <ErrorNote error={build?.error ?? "The build stopped."} />
+            <Button className="self-start" onClick={onBack}>Back to the form</Button>
+          </div>
         )}
       </div>
-    </Stage>
+      {/* A sheet being written: the lines fill in while the build runs. */}
+      <div aria-hidden="true" className="paper mx-auto hidden w-[240px] p-5 md:block">
+        <div className="h-3 w-1/2 rounded-sm bg-text/80" />
+        <div className="mt-1.5 h-2 w-3/4 rounded-sm bg-accent/50" />
+        {Array.from({ length: 11 }, (_, i) => (
+          <div key={i} className={`mt-2.5 h-1.5 rounded-sm ${i % 4 === 0 ? "w-1/3 bg-accent/60" : "bg-border"} ${failed ? "" : "animate-pulse"}`}
+            style={{ width: i % 4 === 0 ? undefined : `${96 - (i % 3) * 11}%`, animationDelay: `${i * 120}ms` }} />
+        ))}
+      </div>
+    </div>
   );
 }
 
-function Tracks({ onDone }: { onDone: () => void }) {
-  const [ready, setReady] = useState(0);
+// ------------------------------------------------------------------ review
+
+function ReviewScreen({ onFinish }: { onFinish: () => Promise<void> }) {
+  const { me, refresh } = useMe();
+  const { review, reload, busy, error } = useReview();
+  const [stageOpen, setStageOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState<"profile" | "prefs">("profile");
+  const [dirty, setDirty] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  if (!review) return error ? <ErrorNote error={error} /> : <div className="h-96 animate-pulse rounded-2xl bg-sunken" />;
+  const p = review.profile;
+  const c = review.counts;
+  const finish = async () => { setFinishing(true); await onFinish(); };
+  const rerender = async () => { setUpdating(true); await api.post("/onboarding/rerender"); setDirty(false); await reload(); setUpdating(false); };
+
   return (
-    <Stage title="Your resumes"
-      intro="One resume per family of roles you chose. Approving one builds it at the largest type size that still fits one page, checked by rendering it.">
-      <TracksEditor onApprovedChange={setReady} />
-      <Button className="self-start min-h-11 px-6 text-[15px]" disabled={ready === 0} onClick={onDone}>
-        {ready === 0 ? "Approve a resume to finish" : "Finish setup"}
-      </Button>
-    </Stage>
+    <div className="flex flex-col gap-10 pb-24">
+      <header>
+        <h1 className="text-[30px] font-bold leading-tight tracking-[-0.025em] sm:text-[36px]">Here&apos;s what we built</h1>
+        <div className="mt-5 rounded-2xl bg-inland p-5 ring-1 ring-inland-edge sm:p-6">
+          <p className="text-[20px] font-bold leading-snug tracking-[-0.015em] sm:text-[24px]">
+            {describe(p.career_stage, p.experience_years, review.preferences.target_families)}
+          </p>
+          <p className="mt-2 text-sm text-text-2">
+            {c.items} projects and jobs, {c.bullets} lines and {c.skills} skills, all from what you gave us.
+          </p>
+          {!stageOpen
+            ? <button type="button" className="mt-3 text-sm font-semibold text-accent hover:underline" onClick={() => setStageOpen(true)}>Not quite right? Change it</button>
+            : <div className="mt-4"><StageEditor stage={p.career_stage} years={p.experience_years}
+                onSaved={async () => { setStageOpen(false); await Promise.all([reload(), refresh()]); }} onCancel={() => setStageOpen(false)} /></div>}
+        </div>
+      </header>
+
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="text-[20px] font-bold tracking-tight">Your resumes</h2>
+          <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-muted">
+            One for each kind of role. When you pursue an opening, it gets its own copy of the closest one, reordered and
+            trimmed for that job.
+          </p>
+        </div>
+        {busy && <p className="inline-flex items-center gap-2 text-sm font-semibold text-accent">
+          <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> Updating your resumes…</p>}
+        <BaselineGrid review={review} busy={busy} reload={reload} />
+      </section>
+
+      <LeftOutPanel items={review.left_out} onUsed={() => { setDirty(true); reload(); }} />
+
+      <section className="paper-inland relative overflow-hidden" aria-labelledby="the-question">
+        <div className="airmail-edge h-2" />
+        <div className="p-6 sm:p-8">
+          <h2 id="the-question" className="font-letter text-[22px] leading-snug sm:text-[26px]">
+            Would you like to add, remove or change anything in your profile or resumes?
+          </h2>
+          <div className="mt-5 flex flex-wrap gap-3">
+            {!editing && <Button variant="secondary" className="min-h-11 px-5" onClick={() => setEditing(true)}>Yes, let me make changes</Button>}
+            <Button className="min-h-11 px-5" busy={finishing} disabled={busy || updating || dirty} onClick={finish}>
+              {editing ? "I'm done, finish setup" : "No, it looks good"}
+            </Button>
+          </div>
+          {dirty && <p className="mt-3 text-sm text-warn">Update your resumes first, so they show your changes.</p>}
+        </div>
+      </section>
+
+      {editing && (
+        <section className="flex flex-col gap-4">
+          <div role="tablist" aria-label="What to change" className="flex gap-1 self-start rounded-xl bg-sunken p-1">
+            {([["profile", "Your profile"], ["prefs", "Preferences"]] as const).map(([k, l]) => (
+              <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+                className={`rounded-lg px-4 py-1.5 text-sm font-semibold ${tab === k ? "bg-surface text-text shadow-sm" : "text-muted hover:text-text"}`}>{l}</button>
+            ))}
+          </div>
+          {tab === "profile" ? <FactBankEditor onChange={() => setDirty(true)} />
+            : <PreferencesForm prefs={me.preferences} profile={me.profile} onSaved={refresh} />}
+        </section>
+      )}
+
+      {dirty && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur sm:px-6">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3">
+            <p className="flex-1 text-sm"><strong>Your profile changed.</strong> <span className="text-muted">Update the resumes so they show it.</span></p>
+            <Button busy={updating} onClick={rerender}>Update my resumes</Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   IconAlert, IconCheck, IconChevronDown, IconCopy, IconDownload, IconExternal, IconEye, IconLink, IconSend, IconX,
 } from "@/components/icons";
@@ -10,6 +10,7 @@ import {
   Badge, Button, ErrorNote, Field, Monogram, Postmark, SENT_STATES, STATUS_LABEL, fmtDayInline, fmtWhen,
   hoursLabel, inputCls,
 } from "@/components/ui";
+import PdfDialog from "@/components/PdfDialog";
 import { api } from "@/lib/api";
 import type { AppDetail, Draft, ResumeLink } from "@/lib/types";
 
@@ -350,25 +351,6 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div className="rounded-xl bg-sunken px-2 py-2.5">
       <dd className="text-[17px] font-bold tabular-nums tracking-tight">{value}</dd>
       <dt className="text-[11px] font-medium text-muted">{label}</dt>
-    </div>
-  );
-}
-
-function PdfDialog({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return (
-    <div role="dialog" aria-modal="true" aria-label={name} className="fixed inset-0 z-50 flex flex-col bg-[rgb(11_16_32/0.72)] p-3 backdrop-blur-sm sm:p-8" onClick={onClose}>
-      <div className="mx-auto flex w-full max-w-4xl items-center justify-between pb-3 text-white">
-        <span className="truncate text-sm font-semibold">{name}</span>
-        <button ref={closeRef} onClick={onClose} className="grid size-10 place-items-center rounded-full hover:bg-white/10" aria-label="Close preview"><IconX size={20} /></button>
-      </div>
-      <iframe src={url} title={name} className="mx-auto w-full max-w-4xl flex-1 rounded-md bg-white" onClick={(e) => e.stopPropagation()} />
     </div>
   );
 }

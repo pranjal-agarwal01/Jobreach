@@ -2,7 +2,6 @@
 
 import { FormEvent, useState } from "react";
 import { api } from "@/lib/api";
-import { FIELDS as DISCIPLINES } from "@/lib/fields";
 import type { Preferences, Profile } from "@/lib/types";
 import { Button, Card, ErrorNote, Field, inputCls } from "./ui";
 
@@ -31,9 +30,10 @@ export default function PreferencesForm({ prefs, profile, onSaved, submitLabel =
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const student = profile.career_stage === "student" || !profile.career_stage;
   const set = <K extends keyof Preferences>(k: K, v: Preferences[K]) => { setP({ ...p, [k]: v }); setSaved(false); };
   const setProf = <K extends keyof Profile>(k: K, v: Profile[K]) => { setPr({ ...pr, [k]: v }); setSaved(false); };
-  const toggleIn = (k: "role_types" | "open_to" | "excluded_company_types", v: string) =>
+  const toggleIn = (k: "open_to" | "excluded_company_types", v: string) =>
     set(k, p[k].includes(v) ? p[k].filter((x) => x !== v) : [...p[k], v]);
 
   async function submit(e: FormEvent) {
@@ -45,11 +45,11 @@ export default function PreferencesForm({ prefs, profile, onSaved, submitLabel =
         name: pr.name, phone: pr.phone, email: pr.email, location: pr.location, links: pr.links,
         grad_date: pr.grad_date, batch_year: pr.batch_year, cgpa: pr.cgpa,
       });
-      const { role_types, open_to, remote_ok, onsite_ok, hybrid_ok, stipend_floor, currency, unpaid_remote_policy,
-        unpaid_onsite_policy, excluded_company_types, freshness_ceiling_hours, duration_flex, start_date,
-        signature_html } = p;
+      const { open_to, remote_ok, onsite_ok, hybrid_ok, stipend_floor, salary_floor, notice_period, currency,
+        unpaid_remote_policy, unpaid_onsite_policy, excluded_company_types, freshness_ceiling_hours, duration_flex,
+        start_date, signature_html } = p;
       await api.put("/preferences", {
-        role_types, open_to, remote_ok, onsite_ok, hybrid_ok, stipend_floor, currency, unpaid_remote_policy,
+        open_to, remote_ok, onsite_ok, hybrid_ok, stipend_floor, salary_floor, notice_period, currency, unpaid_remote_policy,
         unpaid_onsite_policy, excluded_company_types, freshness_ceiling_hours, duration_flex, start_date,
         signature_html: signature_html?.trim() ? signature_html : null,
         locations: list(locations), excluded_companies: list(excluded),
@@ -88,11 +88,6 @@ export default function PreferencesForm({ prefs, profile, onSaved, submitLabel =
 
       <Card title="What you are looking for">
         <div className="flex flex-col gap-4">
-          <Field label="Kinds of work" hint="Leads in other disciplines are dropped (you can override any drop).">
-            <div className="flex flex-wrap gap-2">
-              {DISCIPLINES.map(([k, l]) => <Toggle key={k} on={p.role_types.includes(k)} set={() => toggleIn("role_types", k)}>{l}</Toggle>)}
-            </div>
-          </Field>
           <Field label="Open to">
             <div className="flex gap-2">
               <Toggle on={p.open_to.includes("internship")} set={() => toggleIn("open_to", "internship")}>Internships</Toggle>
@@ -109,8 +104,20 @@ export default function PreferencesForm({ prefs, profile, onSaved, submitLabel =
           <Field label="Cities for onsite or hybrid" hint='Comma-separated, or "Anywhere in India".'>
             <input className={inputCls} value={locations} onChange={(e) => setLocations(e.target.value)} />
           </Field>
+          {!student && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Salary floor (lakh per year)" hint="Posts stating less are dropped.">
+                <input className={inputCls} type="number" step="0.5" min="0" value={p.salary_floor ? p.salary_floor / 100000 : ""}
+                  onChange={(e) => set("salary_floor", e.target.value ? Math.round(Number(e.target.value) * 100000) : null)} />
+              </Field>
+              <Field label="Notice period" hint="Letters mention it only when a post asks.">
+                <input className={inputCls} placeholder="For example: 30 days" value={p.notice_period ?? ""}
+                  onChange={(e) => set("notice_period", e.target.value || null)} />
+              </Field>
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Stipend floor (per month)" hint="Posts stating less are dropped.">
+            <Field label="Stipend floor (per month)" hint="For internships. Posts stating less are dropped.">
               <input className={inputCls} type="number" value={p.stipend_floor ?? ""}
                 onChange={(e) => set("stipend_floor", e.target.value ? Number(e.target.value) : null)} />
             </Field>

@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import { useMe } from "@/components/AppShell";
 import FactBankEditor from "@/components/FactBankEditor";
 import PreferencesForm from "@/components/PreferencesForm";
-import RolesPicker from "@/components/RolesPicker";
+import StageEditor from "@/components/StageEditor";
 import TracksEditor from "@/components/TracksEditor";
 import { Button, Card, Empty, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
-const TABS = [["facts", "Fact bank"], ["roles", "Roles"], ["prefs", "Preferences"], ["tracks", "Resumes"],
-  ["data", "Usage and data"]] as const;
+const TABS = [["facts", "Profile"], ["tracks", "Resumes"], ["prefs", "Preferences"], ["data", "Usage and data"]] as const;
 
 interface Usage {
   steps: { step: string; calls: number; input_tokens: number; output_tokens: number; cache_read_tokens: number;
@@ -23,8 +22,8 @@ interface Usage {
 
 const STEP_LABEL: Record<string, string> = {
   s1_extract: "Reading posts", s4_company: "Checking companies", s5_select: "Choosing resume lines", s7_draft: "Writing letters",
-  onb_extract: "Reading your CVs", onb_interview: "Setup questions", onb_bullets: "Writing bullets", onb_tracks: "Proposing resumes",
-  onb_roles: "Roles audit",
+  onb_extract: "Reading your CVs", onb_baselines: "Writing your resumes", onb_interview: "Setup questions (earlier)",
+  onb_bullets: "Writing bullets (earlier)", onb_tracks: "Proposing resumes (earlier)", onb_roles: "Roles audit (earlier)",
 };
 
 export default function ProfilePage() {
@@ -33,7 +32,7 @@ export default function ProfilePage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title={me.profile.name ?? "Your profile"}
-        sub="Everything your letters and resumes are allowed to say. Change it here and every new draft follows." />
+        sub="Everything your resumes and letters are built from. Change it here and every new draft follows." />
       <div role="tablist" aria-label="Profile sections" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
         <div className="flex gap-1 rounded-xl bg-sunken p-1">
           {TABS.map(([k, l]) => (
@@ -44,9 +43,16 @@ export default function ProfilePage() {
       </div>
       <div role="tabpanel">
         {tab === "facts" && <FactBankEditor />}
-        {tab === "roles" && <RolesPicker initialMode={me.preferences.pool_mode ?? "mix"} onSaved={refresh} />}
-        {tab === "prefs" && <PreferencesForm prefs={me.preferences} profile={me.profile} onSaved={refresh} />}
         {tab === "tracks" && <TracksEditor />}
+        {tab === "prefs" && (
+          <div className="flex flex-col gap-4">
+            <Card title="Where you are">
+              <StageEditor key={`${me.profile.career_stage}:${me.profile.experience_years}`} stage={me.profile.career_stage}
+                years={me.profile.experience_years} onSaved={refresh} />
+            </Card>
+            <PreferencesForm prefs={me.preferences} profile={me.profile} onSaved={refresh} />
+          </div>
+        )}
         {tab === "data" && <DataTab />}
       </div>
     </div>

@@ -35,18 +35,23 @@ Needs Python 3.10+, Node 20+, LibreOffice (`winget install TheDocumentFoundation
    npm run dev          # http://localhost:3000
    ```
 
-## Sign-up, once per student
+## Sign-up, once per user
 
-1. **About you**: every CV, a description, projects, GitHub (public repos are read), other links,
-   and the fields and roles they want.
-2. **Audit**: the model drafts a fact bank from all of it; the student confirms facts, answers
-   up to 8 questions about missing evidence, and removes skills nothing backs.
-3. **Your roles**: the roles the confirmed record supports, each with a fit checked in code
-   (strong needs two confirmed items, good needs one). The student takes the mixed pool (every
-   strong and good fit) or picks roles. Each chosen role is registered with the job pool
-   (`pool_watches`) so the daily collector fetches for roles the pool does not cover yet.
-4. **Preferences**, then **Resumes**: one track per family of chosen roles, each calibrated to
-   one page.
+1. **One form**: CVs, where they are (student, recent graduate, experienced), up to four kinds
+   of role (role families, `app/taxonomy.py`), GitHub, portfolio and LinkedIn links, anything
+   the CV leaves out, and the usual preferences. Defaults follow the stage.
+2. **A background build** (`build_profile`, progress on `profiles.build`): read everything
+   (GitHub repositories and up to six READMEs, the portfolio page; LinkedIn is never fetched),
+   extract the profile, then hold every line to those documents in code (`app/provenance.py`).
+   Lines that cannot be found are left out with the reason; nothing is asked. Full-time years
+   come from job dates and set the experience band. One baseline resume per role family, with
+   an honest fit and gaps, each rendered to one page.
+3. **One review**: the profile in a sentence, the baselines, what was left out, and one
+   question: add, remove or change anything? Finishing registers the user's
+   (role family, band) segments with the opportunity pool.
+
+`backend/scripts/acceptance_onboarding.py` runs the build on two made-up people with the real
+model and renderer, without touching any account.
 
 ## The pipeline, per lead
 
