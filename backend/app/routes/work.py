@@ -1,4 +1,4 @@
-"""Tracks, leads, applications, resumes, outcomes and the Today view."""
+"""Tracks, leads, opportunities (matches), applications, resumes, outcomes and the Today view."""
 from __future__ import annotations
 
 import hashlib
@@ -17,6 +17,9 @@ from ..auth import User, current_user
 from ..config import settings
 from ..db import audit, system_tx, user_tx
 from ..pipeline import resume as resume_mod
+from ..pipeline import match as match_mod
+from ..pipeline import run as run_mod
+from ..pipeline.contacts import CONTEXT_LABEL
 from ..pipeline.draft import gmail_compose_url
 from ..worker import enqueue
 
@@ -73,6 +76,7 @@ def delete_track(key: str, user: User = Depends(current_user)):
     with user_tx(user.id) as conn:      # tracks from before role families
         conn.execute("delete from resume_files where id in (select file_id from resumes where track_key = %s and is_baseline)", (key,))
         conn.execute("delete from tracks where key = %s", (key,))
+    run_mod.queue_rematch(user.id)
     return {"ok": True}
 
 
@@ -123,9 +127,10 @@ def add_lead(body: LeadIn, user: User = Depends(current_user)):
 
 LEAD_SELECT = """
   select j.id, j.status, j.error, j.source, j.source_ref, j.found_by, j.first_seen_at, j.posted_age_hours,
-         j.extracted->>'title' as title, j.extracted->>'company_name' as company_name,
+         coalesce(j.title, j.extracted->>'title') as title, j.extracted->>'company_name' as company_name,
          j.extracted->>'location_text' as location, j.extracted->'stipend' as stipend,
-         m.decision, m.reasons, m.screen->'flags' as flags, m.overridden, m.rank, m.track_key,
+         m.id as match_id, m.decision, m.reasons, m.screen->'flags' as flags, m.overridden, m.rank, m.track_key,
+         m.score, m.bucket, m.prepare_status, m.prepare_error,
          c.verification, c.business_summary, a.id as application_id, a.status as application_status
   from jobs j
   left join matches m on m.job_id = j.id
@@ -153,13 +158,18 @@ def lead(job_id: str, user: User = Depends(current_user)):
 
 @router.post("/leads/{job_id}/override")
 def override(job_id: str, user: User = Depends(current_user)):
-    """The user can override any drop: the lead is drafted anyway."""
+    """The user can override any drop: the lead is prepared anyway, from the same reading."""
     with user_tx(user.id) as conn:
-        r = conn.execute("select id from jobs where id = %s", (job_id,)).fetchone()
+        r = conn.execute("""select j.id, j.extracted is not null as read, m.id as match_id from jobs j
+                            left join matches m on m.job_id = j.id where j.id = %s""", (job_id,)).fetchone()
         if r is None:
             raise HTTPException(404, "not found")
-        conn.execute("update jobs set status = 'queued' where id = %s", (job_id,))
-        enqueue(conn, user.id, "process_lead", {"job_id": job_id, "override": True})
+        if not r["read"] or r["match_id"] is None:
+            conn.execute("update jobs set status = 'queued' where id = %s", (job_id,))
+            enqueue(conn, user.id, "process_lead", {"job_id": job_id, "override": True})
+    if r["read"] and r["match_id"] is not None:
+        match_id, _ = match_mod.match_one(user.id, job_id, override=True)
+        run_mod.queue_prepare(user.id, match_id, override=True)
     audit(user.id, "lead_override", {"job": job_id})
     return {"ok": True}
 
@@ -168,6 +178,100 @@ def override(job_id: str, user: User = Depends(current_user)):
 def delete_lead(job_id: str, user: User = Depends(current_user)):
     with user_tx(user.id) as conn:
         conn.execute("delete from jobs where id = %s", (job_id,))
+    return {"ok": True}
+
+
+# ------------------------------------------------------------------ opportunities (matches)
+
+OPP_SELECT = """
+  select m.id, m.job_id, m.score, m.bucket, m.why, m.gaps, m.decision, m.reasons, m.overridden, m.track_key,
+         m.prepare_status, m.prepare_error, m.seen_at, m.dismissed_at, m.computed_at,
+         m.screen->>'route' as route, m.screen->>'apply_to' as apply_to, m.screen->'flags' as flags,
+         coalesce(j.title, j.extracted->>'title') as title, j.extracted->>'company_name' as company_name,
+         j.role_family, j.employment_type, j.work_mode, j.city, j.exp_min, j.exp_max,
+         j.pay_min, j.pay_max, j.pay_currency, j.pay_period, j.skills_must, j.skills_nice,
+         j.source, j.source_ref, j.visibility, j.first_seen_at,
+         case when j.posted_at is null then null
+              else extract(epoch from (now() - j.posted_at)) / 3600 end as age_hours,
+         c.domain, c.verification,
+         oc.email as contact_email, oc.person_name as contact_name, oc.person_role as contact_role,
+         oc.context as contact_context,
+         a.id as application_id, a.status as application_status
+  from matches m
+  join jobs j on j.id = m.job_id
+  left join companies c on c.id = j.company_id
+  left join opportunity_contacts oc on oc.id = m.contact_id
+  left join applications a on a.job_id = m.job_id
+"""
+BUCKETS = ("strong", "good", "gaps")
+
+
+@router.get("/opportunities")
+def opportunities(user: User = Depends(current_user)):
+    """Openings that suit this person, best first, in three groups."""
+    with user_tx(user.id) as conn:
+        rows = conn.execute(OPP_SELECT + """ where m.decision = 'keep' and m.dismissed_at is null
+                            order by m.score desc nulls last, m.computed_at desc limit 300""").fetchall()
+    return {b: [r for r in rows if r["bucket"] == b] for b in BUCKETS}
+
+
+@router.get("/opportunities/{match_id}")
+def opportunity(match_id: str, user: User = Depends(current_user)):
+    with user_tx(user.id) as conn:
+        r = conn.execute(OPP_SELECT + " where m.id = %s", (match_id,)).fetchone()
+        if r is None:
+            raise HTTPException(404, "not found")
+        job = conn.execute("select raw_text, extracted from jobs where id = %s", (r["job_id"],)).fetchone()
+        company = conn.execute("""select c.name, c.domain, c.verification, c.business_summary, c.flags from jobs j
+                                  join companies c on c.id = j.company_id where j.id = %s""",
+                               (r["job_id"],)).fetchone()
+        contacts = conn.execute("""select id, email, person_name, person_role, context, source_url, evidence,
+                                          is_generic, domain_matches, confidence
+                                   from opportunity_contacts where job_id = %s order by confidence desc""",
+                                (r["job_id"],)).fetchall()
+        conn.execute("update matches set seen_at = coalesce(seen_at, now()) where id = %s", (match_id,))
+    return {**r, "job": job, "company": company,
+            "contacts": [{**c, "chosen": c["email"] == r["contact_email"], "where": CONTEXT_LABEL[c["context"]]}
+                         for c in contacts]}
+
+
+class PrepareIn(BaseModel):
+    override: bool = False
+
+
+@router.post("/opportunities/{match_id}/prepare")
+def prepare_opportunity(match_id: str, body: Optional[PrepareIn] = None, user: User = Depends(current_user)):
+    """Write the letter and the tailored resume for this opening (about a minute)."""
+    override = bool(body and body.override)
+    with user_tx(user.id) as conn:
+        m = conn.execute("""select m.id, m.decision, m.overridden, m.prepare_status, a.id::text as application_id
+                            from matches m left join applications a on a.job_id = m.job_id where m.id = %s""",
+                         (match_id,)).fetchone()
+        if m is None:
+            raise HTTPException(404, "not found")
+        if m["application_id"]:
+            return {"application_id": m["application_id"]}
+        if m["decision"] == "drop" and not (override or m["overridden"]):
+            raise HTTPException(400, "This opening was ruled out for you. Prepare it anyway to override.")
+        if override:
+            conn.execute("update matches set overridden = true where id = %s", (match_id,))
+        if m["prepare_status"] in ("queued", "running"):
+            return {"queued": True}
+    run_mod.queue_prepare(user.id, match_id, override=override or m["overridden"])
+    audit(user.id, "opportunity_prepare", {"match": match_id})
+    return {"queued": True}
+
+
+class DismissIn(BaseModel):
+    dismissed: bool = True
+
+
+@router.post("/opportunities/{match_id}/dismiss")
+def dismiss(match_id: str, body: Optional[DismissIn] = None, user: User = Depends(current_user)):
+    dismissed = body.dismissed if body else True
+    with user_tx(user.id) as conn:
+        conn.execute("update matches set dismissed_at = case when %s then now() else null end where id = %s",
+                     (dismissed, match_id))
     return {"ok": True}
 
 
@@ -223,12 +327,21 @@ def application(app_id: str, user: User = Depends(current_user)):
         events = conn.execute("select * from events where application_id = %s order by occurred_at desc",
                               (app_id,)).fetchall()
         job = conn.execute("select raw_text, extracted from jobs where id = %s", (a["job_id"],)).fetchone()
+        match = conn.execute("select id, score, bucket, why, gaps from matches where job_id = %s",
+                             (a["job_id"],)).fetchone()
+        contact = None
+        if a["contact_id"]:
+            contact = conn.execute("""select email, person_name, person_role, context, source_url, evidence
+                                      from opportunity_contacts where id = %s""", (a["contact_id"],)).fetchone()
     draft = None
     if d:
         plain = _html_to_plain(d["html"])
         draft = {**d, "plain": plain,
                  "gmail_url": gmail_compose_url(d["to_addrs"][0], d["subject"], plain) if d["to_addrs"] else None}
-    return {"application": a, "draft": draft, "resume": r, "events": events, "job": job}
+    if contact:
+        contact = {**contact, "where": CONTEXT_LABEL[contact["context"]]}
+    return {"application": a, "draft": draft, "resume": r, "events": events, "job": job, "match": match,
+            "contact": contact}
 
 
 class AppPatch(BaseModel):
@@ -371,8 +484,8 @@ def shared_resume(token: str):
 
 @router.get("/today")
 def today(user: User = Depends(current_user)):
-    """Live threads with deadlines first, then new drafts (freshest post first), then the
-    judgment calls, then gaps that would strengthen the resume (spec 4.3)."""
+    """Live threads with deadlines first, then letters ready to send, then the openings that
+    suit this person in three groups (strong, good, with gaps), then the posts it dropped."""
     with user_tx(user.id) as conn:
         deadlines = conn.execute(
             """select e.*, a.role_title, j.extracted->>'company_name' as company_name from events e
@@ -381,16 +494,25 @@ def today(user: User = Depends(current_user)):
                  and (e.deadline_at is null or e.deadline_at > now() - interval '1 day')
                  and a.status not in ('rejected', 'closed')
                order by e.deadline_at nulls last, e.occurred_at desc limit 20""").fetchall()
-        drafts = conn.execute(
+        ready = conn.execute(
             APP_SELECT + """ where a.status in ('drafted', 'needs_review')
                order by a.age_at_draft_hours nulls last, a.created_at desc limit 30""").fetchall()
+        opps = conn.execute(
+            OPP_SELECT + """ where m.decision = 'keep' and m.dismissed_at is null and a.id is null
+               and j.state = 'active' order by m.score desc nulls last limit 90""").fetchall()
         decisions = conn.execute(
             LEAD_SELECT + """ where j.owner_user_id = %s and m.decision = 'drop' and not m.overridden
                and j.first_seen_at > now() - interval '3 days' order by j.first_seen_at desc limit 20""",
             (user.id,)).fetchall()
-        processing = conn.execute("select count(*) as n from jobs where status in ('queued', 'processing')").fetchone()
-        gaps = conn.execute(
+        processing = conn.execute(
+            """select (select count(*) from jobs where owner_user_id = %s and status in ('queued', 'processing'))
+                    + (select count(*) from matches where prepare_status in ('queued', 'running')) as n""",
+            (user.id,)).fetchone()
+        number_gaps = conn.execute(
             """select b.id, b.text, i.name as item_name from bullets b join items i on i.id = b.item_id
                where b.confirmed and not b.has_metric order by i.sort, b.sort limit 8""").fetchall()
-    return {"deadlines": deadlines, "drafts": drafts, "decisions": decisions, "gaps": gaps,
-            "processing": processing["n"]}
+        me = conn.execute("""select p.name, p.career_stage, p.experience_years, p.experience_band, pr.target_families
+                             from profiles p left join preferences pr using (user_id)""").fetchone()
+    return {"deadlines": deadlines, "ready": ready,
+            "groups": {b: [o for o in opps if o["bucket"] == b][:30] for b in BUCKETS},
+            "decisions": decisions, "number_gaps": number_gaps, "processing": processing["n"], "me": me}

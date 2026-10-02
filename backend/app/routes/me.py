@@ -10,6 +10,7 @@ from ..auth import User, current_user
 from ..config import settings
 from ..db import audit, system_tx, user_tx
 from ..onboarding import register_segments
+from ..pipeline.run import queue_rematch
 from ..taxonomy import band_for_years
 
 router = APIRouter()
@@ -86,6 +87,7 @@ def put_profile(body: ProfileIn, user: User = Depends(current_user)):
                          (band_for_years(float(p["experience_years"] or 0), p["career_stage"]),))
     if ("career_stage" in fields or "experience_years" in fields) and p["onboarding_step"] == "done":
         register_segments(user.id)
+    queue_rematch(user.id)
     return {"ok": True}
 
 
@@ -120,6 +122,7 @@ def put_prefs(body: PrefsIn, user: User = Depends(current_user)):
     vals = [Jsonb(v) if k == "format_settings" else v for k, v in fields.items()]
     with user_tx(user.id) as conn:
         conn.execute("update preferences set {}, updated_at = now()".format(sets), vals)
+    queue_rematch(user.id)
     return {"ok": True}
 
 

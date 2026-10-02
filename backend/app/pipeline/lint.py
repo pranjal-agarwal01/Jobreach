@@ -73,8 +73,10 @@ def lint(*, subject: str, body_text: str, html: str, to_addr: Optional[str], raw
          fact_texts: list[str], allowed_extra: list[str], recipient_type: str,
          roles_mentioned: list[str], stipend_rule: str, floor: Optional[int],
          duration_flex: str, post_start_text: Optional[str], user_start: str,
-         signature_text: Optional[str], plain_full: str) -> list[Check]:
-    """body_text: the email without the signature. plain_full: the full plain-text email."""
+         signature_text: Optional[str], plain_full: str,
+         published_in: Optional[list[str]] = None) -> list[Check]:
+    """body_text: the email without the signature. plain_full: the full plain-text email.
+    published_in: the texts the recipient's address may be written in (default: the post)."""
     checks: list[Check] = []
     add = lambda name, ok, detail="": checks.append(Check(name, ok, detail))  # noqa: E731
 
@@ -97,8 +99,10 @@ def lint(*, subject: str, body_text: str, html: str, to_addr: Optional[str], raw
     add("no_placeholders", not ph, ", ".join(ph[:3]))
 
     if to_addr:
-        add("recipient_published", to_addr.lower() in published_emails(raw_post),
-            "" if to_addr.lower() in published_emails(raw_post) else "{} is not written in the post".format(to_addr))
+        sources = published_in if published_in is not None else [raw_post]
+        ok = any(to_addr.lower() in published_emails(t or "") for t in sources)
+        add("recipient_published", ok,
+            "" if ok else "{} is not written in the post or on the company's site".format(to_addr))
 
     allowed = set()
     for t in fact_texts + [raw_post] + allowed_extra:

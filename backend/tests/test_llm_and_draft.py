@@ -161,9 +161,9 @@ def _write(fake_outputs, fake):
     c = fake(fake_outputs)
     ex = Extracted(title="Backend Intern", company_name="Acme Labs", poster_name="Priya", poster_type="employee",
                    stipend=Stipend(stated="figure"), discipline="backend")
-    sel = Selection(role_title="Backend Intern", track_key="sde",
+    sel = Selection(role_title="Backend Intern", summary="",
                     left_sections=[SectionSel(heading="Projects", item_keys=["queuekit"])],
-                    bullet_ids=[], fit_score=80, fit_reasons=[], lead_with="QueueKit")
+                    bullet_ids=[], lead_with="QueueKit")
     out = draftmod.write(ex=ex, raw_text=POST, sel=sel, selected_bullets=["b"],
                          facts=[{"id": "f1", "kind": "metric",
                                  "text": "QueueKit sustained 300 jobs per second with four workers"}],

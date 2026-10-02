@@ -66,7 +66,6 @@ def test_only_published_addresses_survive():
 def test_good_lead_is_kept():
     sc = run(ex())
     assert sc.decision == "keep", sc.reasons
-    assert sc.route == "email" and sc.apply_to == "hr@acmelabs.io"
     assert sc.stipend_rule == "none"
 
 
@@ -75,12 +74,10 @@ def test_good_lead_is_kept():
     (dict(mill_signals=["3 certificates on completion"]), "mill"),
     (dict(poster_type="aggregator"), "not the company"),
     (dict(country="Pakistan", remote=False), "geography"),
-    (dict(apply_routes=[ApplyRoute(type="dm_only")]), "No apply route"),
     (dict(batch_years=[2025, 2026]), "Batch-year"),
     (dict(cgpa_min=8.5), "CGPA"),
     (dict(company_type_hint="big_tech"), "Excluded company type"),
     (dict(posted_age_label="5d"), "freshness"),
-    (dict(discipline="marketing"), "Wrong discipline"),
     (dict(stipend=Stipend(stated="figure", min=5000, max=5000, currency="INR", period="month")), "below the floor"),
     (dict(stipend=Stipend(stated="unpaid")), "Unpaid"),                  # unpaid + onsite
     (dict(onsite_city="Mumbai", location_text="Mumbai"), "not in preferred"),
@@ -104,34 +101,36 @@ def test_unpaid_remote_drafts_with_floor_and_unstated_asks():
     assert sc.decision == "keep" and sc.stipend_rule == "ask"
 
 
-def test_personal_mailbox_flagged_for_named_employee_dropped_otherwise():
-    route = [ApplyRoute(type="email", value="priya.founder@gmail.com")]
-    sc = run(ex(apply_routes=route, poster_type="founder"))
-    assert sc.decision == "keep" and any("personal mailbox" in f for f in sc.flags)
-    sc = run(ex(apply_routes=route, poster_type="unknown", company_name=None, company_domain=None))
-    assert sc.decision == "drop"
-
-
-def test_domain_mismatch_is_a_flag_not_a_drop():
-    sc = run(ex(apply_routes=[ApplyRoute(type="email", value="jobs@otherco.in")]))
-    assert sc.decision == "keep" and any("differs" in f for f in sc.flags)
-
-
 def test_annual_salary_normalised_to_monthly():
     e = ex(employment_type="full_time", stipend=Stipend(stated="figure", min=600000, max=800000, period="year"))
     assert screen.monthly(e) == pytest.approx(800000 / 12)
+
+
+def test_full_time_pay_uses_the_yearly_salary_floor_and_is_never_asked_about():
+    prefs = {**PREFS, "open_to": ["full_time"], "salary_floor": 1200000}
+    low = ex(employment_type="full_time", stipend=Stipend(stated="figure", min=600000, max=800000, period="year"))
+    assert any("below your floor" in r for r in run(low, prefs).reasons)
+    monthly_ok = ex(employment_type="full_time", stipend=Stipend(stated="figure", min=120000, period="month"))
+    assert run(monthly_ok, prefs).decision == "keep"               # 1.44M a year
+    unstated = run(ex(employment_type="full_time", stipend=Stipend(stated="unstated")), prefs)
+    assert unstated.decision == "keep" and unstated.stipend_rule == "none"
+
+
+def test_board_listings_have_no_freshness_ceiling():
+    sc = screen.global_screen(ex(posted_age_label="2w"))
+    sc = screen.user_match(ex(posted_age_label="2w"), sc, PREFS, PROFILE, set(), 336, "acmelabs.io", social=False)
+    assert sc.decision == "keep", sc.reasons
 
 
 # ------------------------------------------------------------------ S5 validation
 
 def test_selection_discards_unknown_ids_and_keeps_two_bullets_per_item():
     data = load_profile(next(p for p in PROFILES if "rohan" in p.stem))
-    sel = Selection(role_title="Backend Intern", track_key="nope",
+    sel = Selection(role_title="Backend Intern", summary="",
                     left_sections=[SectionSel(heading="Projects", item_keys=["pixelforge", "ghost"])],
-                    bullet_ids=["pf.b2", "made-up-id"], drop_entry_ids=["aw1", "fake"], fit_score=80,
-                    fit_reasons=["x"], lead_with="PixelForge")
-    ch = selmod.validate(data, sel)
-    assert ch.opts.track == "fullstack"                           # fell back to a real track
+                    bullet_ids=["pf.b2", "made-up-id"], drop_entry_ids=["aw1", "fake"], lead_with="PixelForge")
+    ch = selmod.validate(data, "nope", sel)
+    assert ch.opts.track == "fullstack"                           # fell back to a real baseline
     assert [s.item_ids for s in ch.opts.left_sections] == [["pixelforge"]]
     assert "made-up-id" not in ch.bullet_order
     kept = [b for b in ch.bullet_order if b.startswith("pf.")]
@@ -217,3 +216,35 @@ def test_signature_is_appended_verbatim_and_gmail_link_built():
                                  "http://169.254.169.254/latest/meta-data"])
 def test_fetch_guard_refuses_internal_and_odd_urls(url):
     assert not _safe_url(url)
+
+
+def test_tailored_title_takes_the_posts_role_without_levels_or_unshown_seniority():
+    base = "Backend Developer · B.Tech Computer Science, 2027"
+    assert selmod.tailored_title(base, "Backend Engineer Intern (Remote)", "intern") == \
+        "Backend Engineer · B.Tech Computer Science, 2027"
+    assert selmod.tailored_title(base, "SDE-1, Payments", "entry") == "SDE · B.Tech Computer Science, 2027"
+    assert selmod.tailored_title(base, "Senior Backend Engineer", "junior") == base
+    assert selmod.tailored_title("Software Engineer · 6 years", "Senior Backend Engineer", "senior") == \
+        "Senior Backend Engineer · 6 years"
+    assert selmod.tailored_title("Backend Developer", "Backend Engineer", "intern") == "Backend Developer"
+
+
+def test_tailoring_reorders_skills_and_holds_the_summary_to_the_record():
+    from app.provenance import Corpus
+    from resume_engine.schema import SkillGroup
+    groups = [SkillGroup(label="Frontend", items="React, Next.js, Tailwind CSS"),
+              SkillGroup(label="Backend", items="Node.js, PostgreSQL, Docker")]
+    out = selmod.reorder_skills(groups, ["postgres", "docker", "reactjs", "Kubernetes"])
+    assert [g.label for g in out] == ["Backend", "Frontend"]
+    assert out[0].items == "PostgreSQL, Docker, Node.js" and out[1].items == "React, Next.js, Tailwind CSS"
+
+    data = load_profile(next(p for p in PROFILES if "rohan" in p.stem))
+    corpus = Corpus([("cv", "PixelForge is a pixel editor built with Next.js for 40 users.")])
+    sel = Selection(role_title="Frontend Engineer Intern", lead_with="PixelForge",
+                    summary="I built PixelForge with Next.js for 40 users. I ran Kubernetes for 2000 users.",
+                    left_sections=[SectionSel(heading="Projects", item_keys=["pixelforge"])], bullet_ids=[])
+    ch = selmod.validate(data, "frontend", sel, corpus=corpus, band="intern")
+    assert ch.track.summary == "I built PixelForge with Next.js for 40 users."
+    assert any("summary sentence" in n for n in ch.notes)
+    assert ch.resume_data(data).tracks["frontend"].summary == ch.track.summary
+    assert data.tracks["frontend"].summary != ch.track.summary              # the original is untouched

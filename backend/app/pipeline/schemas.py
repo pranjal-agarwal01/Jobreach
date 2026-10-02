@@ -38,6 +38,9 @@ class Stipend(BaseModel):
 class ApplyRoute(BaseModel):
     type: Literal["email", "form", "ats", "linkedin_apply", "dm_only", "whatsapp", "comment"]
     value: Optional[str] = None
+    # Who reads this address, only when the post says so ("send your CV to Priya, our CTO, at ...").
+    person_name: Optional[str] = None
+    person_role: Optional[str] = None
 
 
 class Extracted(BaseModel):
@@ -60,7 +63,10 @@ class Extracted(BaseModel):
     duration_text: Optional[str] = None
     start_text: Optional[str] = None
     discipline: Discipline
-    stack: list[str] = Field(default_factory=list)
+    exp_min: Optional[float] = None
+    exp_max: Optional[float] = None
+    skills_must: list[str] = Field(default_factory=list)
+    skills_nice: list[str] = Field(default_factory=list)
     apply_routes: list[ApplyRoute] = Field(default_factory=list)
     posted_age_label: Optional[str] = None
     mill_signals: list[str] = Field(default_factory=list)
@@ -89,13 +95,14 @@ class SectionSel(BaseModel):
 
 
 class Selection(BaseModel):
+    """S5 tailors one baseline (chosen in code) to one opening: ids and order only, plus a
+    summary that code holds to the person's own record."""
     role_title: str
-    track_key: str
+    summary: str
     left_sections: list[SectionSel]
     bullet_ids: list[str]
     drop_entry_ids: list[str] = Field(default_factory=list)
-    fit_score: int
-    fit_reasons: list[str]
+    skills_first: list[str] = Field(default_factory=list)
     gaps: list[str] = Field(default_factory=list)
     lead_with: str
 

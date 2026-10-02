@@ -14,6 +14,7 @@ from urllib.parse import quote
 from .. import llm
 from . import lint as lintmod
 from . import prompts
+from .contacts import CONTEXT_LABEL
 from .schemas import EmailDraft, Extracted, Selection
 
 MAX_REWRITES = 2
@@ -43,6 +44,20 @@ def stipend_instruction(rule: str, floor: Optional[int], currency: str) -> str:
     return "Do not mention stipend or salary."
 
 
+def recipient_line(c, company: Optional[str]) -> str:
+    """Who the letter goes to, from the chosen contact (contacts.Candidate)."""
+    team = "the hiring team at {}".format(company) if company else "the hiring team"
+    if c is None:
+        return "Recipient: {}.".format(team)
+    if c.person_name:
+        return "Recipient: {}{}, address {}. Greet them by first name.".format(
+            c.person_name, ", " + c.person_role if c.person_role else "", CONTEXT_LABEL[c.context])
+    if c.context == "site_generic":
+        return ("Recipient: the company's general inbox ({}); no hiring address is published. Greet the team "
+                "and name the role in your first sentence.".format(c.email))
+    return "Recipient: {} ({}, {}). Greet the team.".format(team, c.email, CONTEXT_LABEL[c.context])
+
+
 def render(d: EmailDraft, signature: Optional[str]) -> tuple[str, str, str]:
     """Return (html, plain_full, body_plain_without_signature)."""
     paras = [p.strip() for p in d.paragraphs if p.strip()]
@@ -64,28 +79,41 @@ def render(d: EmailDraft, signature: Optional[str]) -> tuple[str, str, str]:
 
 
 def facts_context(facts: list[dict], profile: dict, prefs: dict) -> str:
-    """Per-user and stable across leads: the cached part of the S7 prompt."""
+    """Per-person and stable across openings: the cached part of the S7 prompt."""
+    stage = profile.get("career_stage") or "student"
+    seeker = {"name": profile.get("name"), "headline": profile.get("headline"), "stage": stage,
+              "graduation": profile.get("grad_date"), "batch_year": profile.get("batch_year")}
+    if stage != "student" and profile.get("experience_years") is not None:
+        seeker["years_of_experience"] = int(float(profile["experience_years"]))
+    availability = {"start": prefs.get("start_date")}
+    if stage == "student":
+        availability["duration"] = prefs.get("duration_flex")
+    elif prefs.get("notice_period"):
+        availability["notice_period"] = prefs.get("notice_period")
     return llm.dumps({
-        "student": {"name": profile.get("name"), "headline": profile.get("headline"),
-                    "graduation": profile.get("grad_date"), "batch_year": profile.get("batch_year")},
-        "availability": {"start": prefs.get("start_date"), "duration": prefs.get("duration_flex")},
+        "seeker": seeker, "availability": availability,
         "facts": [{"id": str(f["id"]), "kind": f["kind"], "text": f["text"]} for f in facts],
     })
 
 
 def write(*, ex: Extracted, raw_text: str, sel: Selection, selected_bullets: list[str],
           facts: list[dict], profile: dict, prefs: dict, stipend_rule: str, to_addr: Optional[str],
-          allowed_extra: list[str], ctx: llm.CallContext) -> DraftOut:
+          allowed_extra: list[str], ctx: llm.CallContext, recipient=None,
+          published_in: Optional[list[str]] = None) -> DraftOut:
+    """recipient: the chosen contacts.Candidate. published_in: where its address is written
+    (the post, or the company's page it was found on); the lint checks it is there."""
     signature = prefs.get("signature_html")
     floor = prefs.get("stipend_floor")
-    stable = [prompts.DRAFT, "Student:\n" + facts_context(facts, profile, prefs)]
+    stable = [prompts.DRAFT, "Seeker:\n" + facts_context(facts, profile, prefs)]
     base = "\n".join([
         "Role to apply for: {}".format(sel.role_title),
         "Company: {}".format(ex.company_name or "unknown"),
-        "Poster: {} ({}, {})".format(ex.poster_name or "not named", ex.poster_role or "role unknown", ex.poster_type),
+        recipient_line(recipient, ex.company_name),
+        "Posted by: {} ({}, {})".format(ex.poster_name or "not named", ex.poster_role or "role unknown",
+                                        ex.poster_type),
         "Lead with: {}".format(sel.lead_with),
         "Gaps to name honestly: {}".format("; ".join(sel.gaps) or "none"),
-        "Stipend instruction: {}".format(stipend_instruction(stipend_rule, floor, prefs.get("currency") or "INR")),
+        "Pay instruction: {}".format(stipend_instruction(stipend_rule, floor, prefs.get("currency") or "INR")),
         "Resume bullets on the attached resume (for reference; quote numbers exactly):",
         *["- " + b for b in selected_bullets],
         "",
@@ -102,6 +130,7 @@ def write(*, ex: Extracted, raw_text: str, sel: Selection, selected_bullets: lis
         html, plain, body = render(d, signature)
         checks = lintmod.lint(
             subject=d.subject, body_text=body, html=html, to_addr=to_addr, raw_post=raw_text,
+            published_in=published_in,
             fact_texts=fact_texts, allowed_extra=allowed_extra, recipient_type=d.recipient_type,
             roles_mentioned=d.roles_mentioned, stipend_rule=stipend_rule, floor=floor,
             duration_flex=prefs.get("duration_flex") or "", post_start_text=ex.start_text,

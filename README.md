@@ -53,19 +53,29 @@ Needs Python 3.10+, Node 20+, LibreOffice (`winget install TheDocumentFoundation
 `backend/scripts/acceptance_onboarding.py` runs the build on two made-up people with the real
 model and renderer, without touching any account.
 
-## The pipeline, per lead
+## The pipeline
+
+Every opening is read once, for everyone it may suit (the global half), then scored for each
+person (the per-user half). A pasted post goes through the same steps and stays private to the
+person who pasted it.
 
 | Step | Who | What |
 |---|---|---|
-| S1 extract | model (fast) | Post → structured fields; email addresses kept only if written in the post |
-| S2 screen | code | Mills, money asks, recruiters/aggregators, no apply route, geography |
-| S3 match | code | The student's preferences: location, stipend floor, batch year, CGPA, freshness, one role per company |
+| S1 extract | model (fast) | Post → structured fields: role, years asked for, required and nice-to-have skills, pay, apply routes; email addresses kept only if written in the post (`pipeline/extract.py`) |
+| S2 screen | code | What rules an opening out for everyone: mills, money asks, recruiters/aggregators, geography (`pipeline/screen.py`) |
 | S4 verify | code + model | DNS, MX, homepage (fetch locked to public hosts), business summary; cached 30 days |
-| S5 select | model | Track, item order, bullets: ids only, validated against confirmed bullets |
+| Contacts | code | Every published address with where it was published, in this order: the post (a named hiring manager or founder, then HR, then a hiring mailbox); a hiring address on the company's own site; the post's portal; the company's general inbox, flagged. Never guessed, never one published for press or support (`pipeline/contacts.py`) |
+| S3 match | code | Per person: their rules (place, work mode, type, pay floor, batch, CGPA, freshness, one role per company), the kind of role and years of experience; then a score out of 100 with the reasons and gaps in words, and a group: strong, good or with gaps (`pipeline/match.py`) |
+| S5 tailor | model | The baseline for that kind of role, tailored: items, bullets and skill order (ids only, validated), a summary held to the person's documents, and the title line from the post's role without a seniority the record lacks (`pipeline/select.py`) |
 | S6 resume | code | Build, render with LibreOffice, one page or step down / drop a line; keep the page-checked PDF |
-| S7 draft | model | Paragraphs only; code renders HTML and appends the signature verbatim |
+| S7 draft | model | Paragraphs to the chosen contact only; code renders HTML and appends the signature verbatim |
 | S8 lint | code | Blocks em dashes, bare URLs, unpublished addresses, unbacked numbers, wrong length, narrowed availability; two rewrites with feedback |
-| S9 deliver | student | Open the company's folder in Jobs: copy the email, download the PDF or copy a revocable share link, press Send |
+| S9 deliver | person | Open the company's folder in Jobs: copy the email, download the PDF or copy a revocable share link, press Send |
+
+S1 to contacts run once per opening (`pipeline/opportunity.py`). S5 to S8 run when the person
+opens a match and presses "Prepare letter" (`pipeline/prepare.py`); a pasted post is prepared
+straight away. Matching is code only, so it reruns whenever the profile, preferences or resumes
+change.
 
 Every model call is logged with tokens and cost (`llm_calls`); Profile → Usage shows it.
 
@@ -79,6 +89,8 @@ cd backend
 
 Phase 1 acceptance: `backend/scripts/eval_extract.py` (S1 vs a human reading of 20 real
 posts) and `backend/scripts/acceptance_phase1.py` (stored drafts, page counts, timing, cost).
+`backend/scripts/acceptance_phase3.py` runs a made-up post from paste to letter, scores it for
+two made-up people and checks the contact order, with the real model and renderer and no account.
 
 `reference/` holds the original personal pipeline's files for parity tests. It is git-ignored
 and never used as seed or test data.

@@ -748,9 +748,11 @@ def remove_family(user_id: str, family: str) -> list[str]:
 
 
 def finish(user_id: str) -> None:
+    from .pipeline.run import queue_rematch
     with user_tx(user_id) as conn:
         conn.execute("update profiles set onboarding_step = 'done'")
     register_segments(user_id)
+    queue_rematch(user_id)
 
 
 def register_segments(user_id: str) -> list[tuple[str, str]]:

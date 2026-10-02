@@ -290,11 +290,23 @@ def skill_key(name: str) -> str:
     return re.sub(r"\s+", " ", (name or "").strip().lower().rstrip(".,;:"))
 
 
+# Canonical names are their own aliases ("python" is Python, "pytorch" is PyTorch).
+_CANONICAL = {re.sub(r"\s+", " ", v.lower()): v for v in _SKILL_ALIASES.values()}
+
+
 def canonical_skill(name: str) -> str:
     """The name a skill is stored and shown under. Unknown skills keep the user's own spelling."""
     k = skill_key(name)
-    return _SKILL_ALIASES.get(k) or _SKILL_ALIASES.get(k.replace(" ", "")) or " ".join(name.split())
+    return (_SKILL_ALIASES.get(k) or _SKILL_ALIASES.get(k.replace(" ", "")) or _CANONICAL.get(k)
+            or " ".join(name.split()))
 
 
 def same_skill(a: str, b: str) -> bool:
     return skill_key(canonical_skill(a)) == skill_key(canonical_skill(b))
+
+
+def skill_spellings(name: str) -> set[str]:
+    """Every spelling of a skill the alias table knows: 'ReactJS' -> react, reactjs, react.js,
+    react js. A skill outside the table has its own spelling only."""
+    canon = canonical_skill(name)
+    return {k for k, v in _SKILL_ALIASES.items() if v == canon} | {skill_key(name), skill_key(canon)}

@@ -71,7 +71,17 @@ def monthly(ex: Extracted) -> Optional[float]:
     return amount
 
 
+def portal(ex: Extracted) -> Optional[str]:
+    """The post's own application form or portal link, if it gives one."""
+    for r in ex.apply_routes:
+        if r.type in ("form", "ats", "linkedin_apply"):
+            return r.value or r.type
+    return None
+
+
 def global_screen(ex: Extracted) -> Screen:
+    """What rules an opening out for everyone. Who to write to is decided later, from the
+    contact candidates (contacts.py)."""
     sc = Screen()
     if ex.asks_candidate_for_money:
         sc.drop("Asks the candidate for money")
@@ -91,33 +101,15 @@ def global_screen(ex: Extracted) -> Screen:
     elif country and country not in INDIA:
         sc.flags.append("Remote role at a company based in {}".format(ex.country))
 
-    emails = [r.value for r in ex.apply_routes if r.type == "email" and r.value]
-    portals = [r for r in ex.apply_routes if r.type in ("form", "ats", "linkedin_apply")]
-    if emails:
-        sc.route, sc.apply_to = "email", emails[0]
-        dom = email_domain(emails[0])
-        site = company_domain(ex) if ex.company_domain else None
-        if dom in PERSONAL_DOMAINS:
-            if ex.poster_type in ("founder", "employee") and ex.company_name:
-                sc.flags.append("Contact is a personal mailbox ({}) from a named {} of {}".format(
-                    dom, ex.poster_type, ex.company_name))
-            else:
-                sc.drop("Personal mailbox with no named company behind it")
-        elif site and dom != site and not dom.endswith("." + site):
-            sc.flags.append("Contact domain ({}) differs from the website domain ({})".format(dom, site))
-    elif portals:
-        sc.route = "portal"
-        sc.apply_to = portals[0].value or portals[0].type
-    else:
-        sc.drop("No apply route: no published email, form or ATS link")
-
     if ex.shared_by_third_party:
         sc.flags.append("Shared by a third party, not posted by the company")
     return sc
 
 
 def user_match(ex: Extracted, sc: Screen, prefs: dict, profile: dict, applied: set[str],
-               age_hours: Optional[float], key: Optional[str]) -> Screen:
+               age_hours: Optional[float], key: Optional[str], social: bool = True) -> Screen:
+    """One person's rules. The kind of role and years of experience are matched in match.py.
+    social: a post (freshness ceiling applies); job-board listings stay valid while listed."""
     # Work mode and place.
     locs = [l.lower() for l in (prefs.get("locations") or [])]
     anywhere = not locs or any("anywhere" in l for l in locs)
@@ -140,10 +132,6 @@ def user_match(ex: Extracted, sc: Screen, prefs: dict, profile: dict, applied: s
         sc.drop("{} role; preferences are {}".format(ex.employment_type.replace("_", "-"),
                                                        ", ".join(open_to)))
 
-    roles = prefs.get("role_types") or []
-    if roles and ex.discipline not in roles:
-        sc.drop("Wrong discipline for this search ({})".format(ex.discipline))
-
     by = profile.get("batch_year")
     if ex.batch_years and by and int(by) not in ex.batch_years:
         sc.drop("Batch-year gate ({}) excludes {}".format(", ".join(map(str, ex.batch_years)), by))
@@ -163,13 +151,50 @@ def user_match(ex: Extracted, sc: Screen, prefs: dict, profile: dict, applied: s
         sc.flags.append("Company not identifiable from the post")
 
     ceiling = prefs.get("freshness_ceiling_hours") or 72
-    if age_hours is None:
+    if social and age_hours is None:
         sc.flags.append("Post age unknown")
-    elif age_hours > ceiling:
+    elif social and age_hours > ceiling:
         sc.drop("Post is {:.0f}h old, past the {}h freshness ceiling".format(age_hours, ceiling))
 
-    _stipend(ex, sc, prefs)
+    if is_job(ex, profile):
+        _salary(ex, sc, prefs)
+    else:
+        _stipend(ex, sc, prefs)
     return sc
+
+
+def is_job(ex: Extracted, profile: dict) -> bool:
+    """Full-time pay rules (a yearly salary floor, never asked about in a first email) or an
+    internship's (a monthly stipend floor, asked about when unstated)."""
+    if ex.employment_type == "full_time":
+        return True
+    if ex.employment_type == "internship":
+        return False
+    return (profile.get("career_stage") or "student") != "student"
+
+
+def yearly(ex: Extracted) -> Optional[float]:
+    s = ex.stipend
+    amount = s.max if s.max is not None else s.min
+    if amount is None or s.period == "total":
+        return None
+    return amount * 12 if s.period == "month" else amount
+
+
+def _salary(ex: Extracted, sc: Screen, prefs: dict) -> None:
+    floor = prefs.get("salary_floor")
+    s = ex.stipend
+    if s.stated == "figure":
+        y = yearly(ex)
+        cur = (s.currency or "").upper().replace("RS", "INR").replace("₹", "INR")
+        if floor and y is not None and (not cur or cur.startswith("INR")) and y < floor:
+            sc.drop("Stated pay ({:,.0f} a year) is below your floor ({:,})".format(y, floor))
+        elif y is None or (cur and not cur.startswith("INR")):
+            sc.flags.append("Pay stated in a form that cannot be compared with your floor")
+    elif s.stated == "unpaid":
+        sc.drop("Unpaid full-time role")
+    elif s.stated == "performance_based":
+        sc.flags.append("Pay is performance-based only")
 
 
 def _stipend(ex: Extracted, sc: Screen, prefs: dict) -> None:

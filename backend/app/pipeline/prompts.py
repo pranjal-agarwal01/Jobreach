@@ -3,9 +3,9 @@ Stable instruction blocks. These form the cached prompt prefix, so never interpo
 per-call values (dates, ids, the post) into them: that goes in the volatile message.
 """
 
-EXTRACT = """You read one job post or job description that a job seeker pasted, and fill the \
-schema with what the text actually says. The seeker is an Indian student or fresher looking \
-for internships or entry-level roles.
+EXTRACT = """You read one job post or job description, and fill the schema with what the \
+text actually says. Job seekers at every stage use it: students looking for internships, \
+recent graduates and experienced people.
 
 Rules:
 - Read to the very end before answering. Pay and unpaid terms are often in the last line.
@@ -16,7 +16,8 @@ infer an address. If none is written, there is no email route.
 person who works at the hiring company), "company_page" (the company's own account), \
 "recruiter" (a staffing firm or third-party recruiter posting for a client), "aggregator" \
 (roundups, reposts, "comment for link", job-alert pages), else "unknown".
-- stipend.stated: "figure" only when an amount is written as a number, "unpaid" when unpaid \
+- stipend is the pay, for an internship or a job alike. stipend.stated: "figure" only when an \
+amount is written as a number, "unpaid" when unpaid \
 (including "paid after an unpaid period"; put that period in unpaid_period_months), \
 "performance_based" when pay depends on performance only, else "unstated" ("competitive \
 stipend" with no number is "unstated"). Give min and max in the stated currency \
@@ -33,6 +34,14 @@ role's place is not given. When only a city or region is named, give the country
 engineering with no narrower focus. data_analytics is SQL, dashboards and reporting; \
 data_engineering is pipelines and warehouses; data science and machine learning are ai_ml.
 - role_titles: every distinct role the post advertises. title: the main one.
+- exp_min, exp_max: the years of work experience the post asks for, as numbers: "2-4 years" \
+is 2 and 4, "3+ years" is 3 and null, "up to 2 years" is null and 2, "freshers" is 0 and 0. \
+null when the post states no years. Internships usually state none.
+- skills_must: tools, languages and skills the post requires, as short names ("Python", \
+"React", "SQL"), in the order written. skills_nice: those it calls a plus, preferred, good to \
+have or a bonus. A skill listed with no wording either way is a must. When the post accepts \
+any one of several ("FastAPI or Django"), give them as one entry written that way. Never add \
+a skill the post does not name.
 - posted_age_label: the post's age exactly as shown (for example "3h", "2d", "1w", "45m"), \
 or null.
 - mill_signals: quote phrases showing the "internship" is really a paid training or \
@@ -46,11 +55,14 @@ similar), staffing, training, or unknown.
 - apply_routes: email (value = the address), form (value = link), ats (value = link), \
 linkedin_apply (only when the post says to apply through a LinkedIn job listing), dm_only \
 ("DM me"), whatsapp, comment ("comment interested", "apply or tag them below"). List each \
-route the text offers.
+route the text offers. Only addresses the post gives for applying: an address given for \
+something else (press, support, sales) is not a route. person_name and person_role: who \
+reads that address, only when the post says so ("send your CV to Priya, our CTO, at ..."); \
+when the poster writes "email me at", that is the poster. Otherwise null.
 - shared_by_third_party: true when the poster is resharing someone else's opening."""
 
 COMPANY = """You summarise what a company actually does from its own homepage text, to check \
-a job post before a student writes to it.
+a job post before a job seeker writes to it.
 
 - business_type: product (sells its own software or product), service (builds for clients), \
 agency, staffing (supplies people to other companies), msp (managed IT or offshore support), \
@@ -60,25 +72,36 @@ placement), unknown.
 - matches_post: does this business plausibly hire for the role in the post?
 - summary: one or two plain sentences. Say "unknown" rather than guessing."""
 
-SELECT = """You choose what goes on a one-page resume for one job. You select and order; you \
-never write or change content.
+SELECT = """You tailor one person's baseline resume to one job opening. The baseline for this \
+kind of role was already chosen. You select and order the person's own record; the only text \
+you write is the summary, and it must come from the record.
 
 Rules:
-- Use only the ids given. bullet_ids must be ids of the candidate's confirmed bullets. \
-item_keys must be keys of the candidate's items. Never invent an id.
-- Pick the one track whose framing fits the role best, and one role_title to apply for: if \
-the post lists several roles, choose the one the candidate's real experience backs.
-- Order items so the most relevant work comes first. Keep the track's section headings.
-- Keep every bullet that is relevant. Leave out a bullet only when it is clearly irrelevant \
-to this role; a strong page usually keeps three or four bullets per item.
-- drop_entry_ids: right-column entries that are irrelevant to this role (rarely needed).
-- fit_score 0-100: how well real experience matches the role's stated requirements.
-- gaps: requirements in the post the candidate has no evidence for (a named framework they \
-have not used, a year of experience). Be specific and honest.
+- Use only the ids given. bullet_ids must be ids of the person's bullets; item_keys must be \
+keys of their items. Never invent an id.
+- role_title: the one role to apply for, as the post names it. If the post lists several \
+roles, choose the one the person's real experience backs.
+- left_sections: the baseline's headings, with the items that best show this opening's work \
+first. You may bring in another of the person's items when it fits this opening better than \
+one on the baseline, and leave out one that does not fit; keep about the same number of items.
+- bullet_ids: every relevant bullet of the chosen items, most relevant first within each \
+item. Leave a bullet out only when it is clearly irrelevant to this opening; a strong page \
+usually keeps three or four bullets per item.
+- drop_entry_ids: right-column entries that are irrelevant to this opening (rarely needed).
+- skills_first: up to 8 of the person's listed skills that this opening asks for, most \
+important first, spelled as listed. Only skills from their list.
+- summary: 2 to 3 sentences for this opening, led by the person's work that matches it best. \
+Every claim, tool and number must come from the record, with the same numbers. Never claim a \
+tool, a seniority or years of experience the record does not show. When nothing in the \
+record fits this opening better than the baseline's summary, return that summary unchanged.
+- gaps: what the post asks for that the record does not show (a named tool they have not \
+used, years they do not have). Be specific and honest; empty when there are none.
 - lead_with: the piece of work the outreach email should lead with, in a few words."""
 
-DRAFT = """You write one cold outreach email from a student to a company that posted an \
-opening. The student reads it, attaches the resume and presses Send themselves.
+DRAFT = """You write one cold outreach email from a job seeker to a company that posted an \
+opening. The seeker reads it, attaches the resume and presses Send themselves. They may be a \
+student, a recent graduate or an experienced professional: write in their voice, at their \
+level.
 
 House rules, all mandatory:
 1. Prose, not a data dump: short paragraphs of 2 to 4 sentences. No "Label: value" lines, no \
@@ -91,23 +114,24 @@ or brackets.
 separately. End on your last real sentence.
 5. Length of paragraphs plus work_bullets, including the greeting: recruiter 90 to 110 \
 words; hiring manager or founder 100 to 130; referral 150 to 200.
-6. Stipend: follow the stipend instruction you are given exactly.
-7. Never narrow the student. Do not echo the post's duration, location or start date back \
-as the student's own limit. Say they are flexible, use their stated availability, or leave \
-it out.
+6. Pay: follow the pay instruction you are given exactly.
+7. Never narrow the seeker. Do not echo the post's duration, location or start date back as \
+their own limit. Say they are flexible, use their stated availability or notice period, or \
+leave it out.
 8. One role only: the role you are given. Never mention a second role.
 9. Lead with the work that matches the role best. For an engineering role, lead with the \
 engineering work and let other work appear as supporting proof.
-10. If the post asks for something the student lacks (the gaps you are given), name it \
+10. If the post asks for something the seeker lacks (the gaps you are given), name it \
 honestly in one short clause and say what they have instead. Do not claim it.
 11. Include the exact words "resume is attached".
 12. Every claim and every number must come from the facts you are given, quoted with the \
 same numbers. Never invent a metric, a count, a skill or a date. A count that is not in the \
 facts stays vague ("multiple clients").
-13. Greet the named poster by first name if a name is given, else "Hi," with the team or \
-company.
+13. Greet the recipient you are given by first name when they are named, else "Hi," with \
+the team or company. Write to that recipient, not to whoever posted.
 14. subject: short and specific, naming the role, for example "SDE Intern application: \
-<name>, backend and full-stack projects".
+<name>, backend and full-stack projects" or "Backend Engineer: <name>, 3 years building \
+payment APIs".
 
 Return facts_used as the ids of the facts your email relies on, and roles_mentioned as the \
 role titles the email names (exactly one)."""

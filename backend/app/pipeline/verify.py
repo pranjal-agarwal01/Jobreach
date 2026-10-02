@@ -93,8 +93,14 @@ def fetch_homepage(domain: str) -> Optional[str]:
 
 
 def fetch_page(url: str) -> Optional[str]:
-    """Visible text of one public web page, or None. Only public addresses on ports 80/443;
-    every redirect hop is re-checked."""
+    """Visible text of one public web page, or None."""
+    got = fetch_html(url)
+    return _visible_text(got[1]) if got else None
+
+
+def fetch_html(url: str) -> Optional[tuple[str, str]]:
+    """(final url, html) of one public web page, or None. Only public addresses on ports
+    80/443; every redirect hop is re-checked."""
     try:
         with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=False,
                           headers={"User-Agent": "JobreachVerifier/0.1 (+company check)"}) as c:
@@ -112,7 +118,7 @@ def fetch_page(url: str) -> Optional[str]:
                         body += chunk
                         if len(body) > MAX_BYTES:
                             break
-                    return _visible_text(body.decode(r.encoding or "utf-8", "replace"))
+                    return url, body.decode(r.encoding or "utf-8", "replace")
     except httpx.HTTPError:
         return None
     return None
