@@ -23,6 +23,9 @@ def ex(**kw):
     ("Senior Data Engineer", "backend", "data_engineering"),
     ("Backend Engineer Intern", "sde", "backend"),
     ("Chief Happiness Wizard", "operations", "operations"),
+    ("Software Engineer II", "security", "security"),     # the post's own reading of a generic title
+    ("SIEM & SecOps Engineer II", "sde", "security"),
+    ("Cloud Network Engineer II", "sde", "devops"),
 ])
 def test_family_from_title_then_reading(title, discipline, family):
     assert opp.family_of(ex(title=title, discipline=discipline)) == family
@@ -46,11 +49,11 @@ def test_normalise_columns():
     assert c["work_mode"] == "remote" and c["pay_min"] is None
 
 
-def test_dedupe_key_ignores_case_punctuation_and_levels_of_spacing():
-    a = ex(title="Backend Engineer (Payments)")
-    b = ex(title="backend engineer - payments")
-    assert opp.dedupe_key(a, opp.normalise(a)) == opp.dedupe_key(b, opp.normalise(b))
-    assert opp.dedupe_key(a, opp.normalise(a)) != opp.dedupe_key(ex(onsite_city="Pune"), opp.normalise(ex(onsite_city="Pune")))
+def test_dedupe_key_ignores_case_and_punctuation_but_not_place():
+    a = opp.dedupe_key("acmelabs.io", "Backend Engineer (Payments)", "Bengaluru")
+    assert a == opp.dedupe_key("AcmeLabs.io", "backend engineer - payments", "bengaluru")
+    assert a != opp.dedupe_key("acmelabs.io", "Backend Engineer (Payments)", "Pune")
+    assert opp.dedupe_key(None, "Backend Engineer", "Pune") is None
 
 
 @pytest.fixture
@@ -112,3 +115,11 @@ def test_a_failed_company_check_rules_the_opening_out(fakes):
 def test_alternatives_stay_one_requirement_with_canonical_names():
     c = opp.normalise(ex(skills_must=["python", "fastapi or django", "CI/CD"]))
     assert c["skills_must"] == ["Python", "FastAPI or Django", "CI/CD"]
+
+
+def test_a_company_board_is_the_company_whatever_the_model_reads(fakes):
+    state, calls, kw = fakes
+    state["ex"] = ex(poster_type="aggregator", shared_by_third_party=True)
+    assert opp.read("...", None, None, source="paste", **kw).screen.decision == "drop"
+    r = opp.read("...", None, None, source="lever", **kw)
+    assert r.screen.decision == "keep" and r.ex.poster_type == "company_page"

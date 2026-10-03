@@ -52,6 +52,12 @@ class Settings:
     # is deployed, links work only on this machine.
     public_base_url: str = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").strip()
     worker_poll_seconds: float = float(os.environ.get("WORKER_POLL_SECONDS", "2"))
+    # The shared pool (pool.py): the worker schedules a pool tick this often. It reads job boards
+    # only while some user needs a kind of role, so an empty pool costs nothing.
+    pool_enabled: bool = os.environ.get("POOL_ENABLED", "1").strip() not in ("0", "false", "no")
+    pool_tick_minutes: int = int(os.environ.get("POOL_TICK_MINUTES", "15"))
+    # Strong, fresh matches prepared before the person opens them, per person per day.
+    prewarm_per_day: int = int(os.environ.get("PREWARM_PER_DAY", "3"))
     # Bump whenever the consent notice changes (2026-10-01: model processor is Azure OpenAI).
     consent_version: str = "2026-10-01"
 

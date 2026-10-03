@@ -32,6 +32,8 @@ from .schemas import CompanySummary, Extracted
 CACHE_DAYS = 30
 FETCH_TIMEOUT = 8.0
 MAX_BYTES = 600_000
+# One name for every page Jobreach reads, so a site's robots.txt can address it.
+USER_AGENT = "Jobreach/0.1 (company check and public job listings)"
 HOST_RE = re.compile(r"^(?=.{4,253}$)([a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 
 
@@ -98,12 +100,13 @@ def fetch_page(url: str) -> Optional[str]:
     return _visible_text(got[1]) if got else None
 
 
-def fetch_html(url: str) -> Optional[tuple[str, str]]:
-    """(final url, html) of one public web page, or None. Only public addresses on ports
-    80/443; every redirect hop is re-checked."""
+def fetch_html(url: str, accept: tuple[str, ...] = ("html",)) -> Optional[tuple[str, str]]:
+    """(final url, body) of one public web page, or None. Only public addresses on ports
+    80/443; every redirect hop is re-checked. accept: content types to read ("html", or
+    "text/plain" for robots.txt)."""
     try:
         with httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=False,
-                          headers={"User-Agent": "JobreachVerifier/0.1 (+company check)"}) as c:
+                          headers={"User-Agent": USER_AGENT}) as c:
             for _ in range(4):
                 if not _safe_url(url):
                     return None
@@ -111,7 +114,8 @@ def fetch_html(url: str) -> Optional[tuple[str, str]]:
                     if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
                         url = str(httpx.URL(url).join(r.headers["location"]))
                         continue
-                    if r.status_code >= 400 or "html" not in r.headers.get("content-type", "html"):
+                    ctype = r.headers.get("content-type", accept[0])
+                    if r.status_code >= 400 or not any(t in ctype for t in accept):
                         return None
                     body = b""
                     for chunk in r.iter_bytes():

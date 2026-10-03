@@ -210,7 +210,7 @@ BUCKETS = ("strong", "good", "gaps")
 def opportunities(user: User = Depends(current_user)):
     """Openings that suit this person, best first, in three groups."""
     with user_tx(user.id) as conn:
-        rows = conn.execute(OPP_SELECT + """ where m.decision = 'keep' and m.dismissed_at is null
+        rows = conn.execute(OPP_SELECT + """ where m.decision = 'keep' and m.dismissed_at is null and j.state = 'active'
                             order by m.score desc nulls last, m.computed_at desc limit 300""").fetchall()
     return {b: [r for r in rows if r["bucket"] == b] for b in BUCKETS}
 
@@ -513,6 +513,7 @@ def today(user: User = Depends(current_user)):
                where b.confirmed and not b.has_metric order by i.sort, b.sort limit 8""").fetchall()
         me = conn.execute("""select p.name, p.career_stage, p.experience_years, p.experience_band, pr.target_families
                              from profiles p left join preferences pr using (user_id)""").fetchone()
+        conn.execute("update profiles set last_active_at = now()")    # pre-warm only for people who come back
     return {"deadlines": deadlines, "ready": ready,
             "groups": {b: [o for o in opps if o["bucket"] == b][:30] for b in BUCKETS},
             "decisions": decisions, "number_gaps": number_gaps, "processing": processing["n"], "me": me}

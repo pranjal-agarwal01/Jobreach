@@ -64,9 +64,9 @@ FAMILIES: dict[str, Family] = {
 # backend; "Sales Engineer" is business; a bare "Engineer" is software engineering).
 _RULES: list[tuple[str, str]] = [
     ("design", r"\bdesigner\b|\bui\s*/\s*ux\b|\bux\b"),
-    ("security", r"\bsecurity\b|\bcyber\s*security\b|\bsoc\s+analyst\b|\bpenetration\b|\bpen\s*test|\bappsec\b|\binfosec\b|\bvapt\b"),
+    ("security", r"\bsecurity\b|\bcyber\s*security\b|\bsoc\s+analyst\b|\bpenetration\b|\bpen\s*test|\bappsec\b|\binfosec\b|\bvapt\b|\bsec\s*ops\b|\bsiem\b|\bthreat\b"),
     ("qa", r"\bqa\b|\bquality\s+(assurance|analyst|engineer)\b|\bsdet\b|\btest(ing)?\s+(engineer|analyst|automation)\b|\bautomation\s+test|\btester\b|\bsoftware\s+test"),
-    ("devops", r"\bdev\s*-?\s*ops\b|\bdevsecops\b|\bmlops\b|\bsre\b|\bsite\s+reliability\b|\bcloud\s+(engineer|architect|ops|developer)\b|\bplatform\s+engineer\b|\binfrastructure\b|\binfra\s+engineer\b|\bkubernetes\b|\bsys\s*admin|\bsystems?\s+administrator\b"),
+    ("devops", r"\bdev\s*-?\s*ops\b|\bdevsecops\b|\bmlops\b|\bsre\b|\bsite\s+reliability\b|\bcloud\s+(\w+\s+)?(engineer|architect|ops|developer)\b|\bnetwork\s+(engineer|administrator)\b|\bplatform\s+engineer\b|\binfrastructure\b|\binfra\s+engineer\b|\bkubernetes\b|\bsys\s*admin|\bsystems?\s+administrator\b"),
     ("data_engineering", r"\bdata\s+engineer|\bbig\s+data\b|\betl\b|\banalytics\s+engineer|\bdata\s+platform\b|\bdata\s+warehouse"),
     ("cv", r"\bcomputer\s+vision\b|\bcv\s+engineer|\bperception\b|\bimage\s+processing\b"),
     ("ai_ml", r"\bmachine\s+learning\b|\bml\b|\bai\b|\bartificial\s+intelligence\b|\bdeep\s+learning\b|\bnlp\b|\bllms?\b|\bgen\s*ai\b|\bgenerative\b|\bdata\s+scien|\bapplied\s+scientist\b|\bresearch\s+scientist\b"),

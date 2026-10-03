@@ -23,8 +23,6 @@ from . import screen as screen_mod
 from . import verify as verify_mod
 from .schemas import Extracted
 
-# Posts age fast (founders hire within days); a job-board listing stays valid while listed.
-SOCIAL_SOURCES = {"paste", "hn"}
 MAX_SKILLS = 20
 
 
@@ -42,12 +40,17 @@ def work_mode(ex: Extracted) -> str:
     return "unknown"
 
 
+# Readings of a whole post that are specific enough to beat a generic engineering title.
+TECHNICAL = {"backend", "frontend", "fullstack", "mobile", "ai_ml", "cv", "data_analytics", "data_engineering",
+             "devops", "qa", "embedded", "security"}
+
+
 def family_of(ex: Extracted) -> str:
-    """The title decides when it names a kind of work. A generic title ("Software Engineer")
-    takes the model's narrower reading of the whole post when that is a neighbour."""
+    """The title decides when it names a kind of work. A generic engineering title ("Software
+    Engineer II") takes the model's narrower reading of the whole post when that is technical."""
     title = ex.title or (ex.role_titles[0] if ex.role_titles else None)
     fam = tx.title_family(title)
-    if fam == "other" or (fam == "sde" and ex.discipline in tx.FAMILIES["sde"].neighbours):
+    if fam == "other" or (fam == "sde" and ex.discipline in TECHNICAL):
         return ex.discipline
     return fam
 
@@ -98,15 +101,15 @@ def normalise(ex: Extracted) -> dict:
     }
 
 
-def dedupe_key(ex: Extracted, cols: dict) -> Optional[str]:
+def dedupe_key(company: Optional[str], title: Optional[str], place: Optional[str]) -> Optional[str]:
     """The same opening found twice (two boards, a board and a careers page): the company,
-    the title without levels or punctuation, and the city."""
-    who = screen_mod.company_key(ex)
-    if not who or not cols.get("title"):
+    the title without case or punctuation, and the place. Set once, from the feed, before any
+    model reads the posting."""
+    if not company or not title:
         return None
-    title = re.sub(r"[^a-z0-9]+", " ", cols["title"].lower()).strip()
-    city = re.sub(r"[^a-z]+", "", (cols.get("city") or cols.get("work_mode") or "").lower())
-    return hashlib.sha1("{}|{}|{}".format(who, title, city).encode()).hexdigest()[:24]
+    t = re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+    where = re.sub(r"[^a-z]+", "", (place or "").lower())
+    return hashlib.sha1("{}|{}|{}".format(company.lower(), t, where).encode()).hexdigest()[:24]
 
 
 @dataclass
@@ -119,11 +122,17 @@ class Read:
     age_hours: Optional[float] = None
 
 
-def read(raw_text: str, source_ref: Optional[str], ctx: llm.CallContext, *,
+# A company's own job board or careers page: whoever posted it is the company.
+COMPANY_OWNED = {"greenhouse", "lever", "ashby", "careers"}
+
+
+def read(raw_text: str, source_ref: Optional[str], ctx: llm.CallContext, *, source: str = "paste",
          verify: Callable = verify_mod.verify, site: Callable = contacts_mod.site_candidates) -> Read:
     """S1, S2, S4 and contact candidates for one opening. Model calls and network, but no
     database writes beyond the shared company cache."""
     ex = ex_mod.extract(raw_text, source_ref, ctx)
+    if source in COMPANY_OWNED:
+        ex = ex.model_copy(update={"poster_type": "company_page", "shared_by_third_party": False})
     sc = screen_mod.global_screen(ex)
     domain = screen_mod.company_domain(ex)
 
@@ -152,15 +161,14 @@ def read(raw_text: str, source_ref: Optional[str], ctx: llm.CallContext, *,
                 age_hours=ex_mod.parse_age_hours(ex.posted_age_label))
 
 
-def store(job_id: str, r: Read, public: bool = False) -> None:
+def store(job_id: str, r: Read) -> None:
+    """Write the reading. A board's own posting date is kept when the text states no age."""
     cols = normalise(r.ex)
-    if public:
-        cols["dedupe_key"] = dedupe_key(r.ex, cols)
     names = list(cols)
     with system_tx() as conn:
         conn.execute(
-            """update jobs set extracted = %s, posted_age_hours = %s,
-                   posted_at = case when %s::numeric is null then null
+            """update jobs set extracted = %s, posted_age_hours = coalesce(%s, posted_age_hours),
+                   posted_at = case when %s::numeric is null then posted_at
                                     else first_seen_at - make_interval(secs => %s::numeric * 3600) end,
                    company_id = %s, screen = %s, last_seen_at = now(), {}
                where id = %s""".format(", ".join("{} = %s".format(n) for n in names)),
@@ -181,10 +189,10 @@ def store(job_id: str, r: Read, public: bool = False) -> None:
 def process(job_id: str, user_id: Optional[str] = None) -> Read:
     """Read and store one opening. user_id: whose model budget a pasted post is billed to."""
     with system_tx() as conn:
-        job = conn.execute("select id, raw_text, source_ref, visibility from jobs where id = %s", (job_id,)).fetchone()
+        job = conn.execute("select id, raw_text, source_ref, source from jobs where id = %s", (job_id,)).fetchone()
         if job is None:
             raise OpportunityError("opening not found")
         conn.execute("update jobs set status = 'processing', error = null where id = %s", (job_id,))
-    r = read(job["raw_text"], job["source_ref"], llm.CallContext(user_id=user_id, job_id=job_id))
-    store(job_id, r, public=job["visibility"] == "public")
+    r = read(job["raw_text"], job["source_ref"], llm.CallContext(user_id=user_id, job_id=job_id), source=job["source"])
+    store(job_id, r)
     return r

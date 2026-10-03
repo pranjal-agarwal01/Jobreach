@@ -27,14 +27,19 @@ from .pipeline import run as run_mod
 log = logging.getLogger("worker")
 WORKER_ID = "{}:{}".format(socket.gethostname(), os.getpid())
 STALE_MINUTES = 15
+# The shared pool's tasks (pool.POOL_KINDS) run below anything a person is waiting for.
+POOL_KINDS = {"pool_tick", "poll_board", "poll_hn", "scan_company"}
+PRIORITY_PERSON, PRIORITY_POOL = 10, 0
+SCHEDULE_CHECK_SECONDS = 60
 
 
-def enqueue(conn, user_id: str, kind: str, payload: dict) -> int:
+def enqueue(conn, user_id, kind: str, payload: dict) -> int:
     """Enqueue inside the caller's transaction. The queue is not visible to users, so this
-    runs with the connection's own role."""
+    runs with the connection's own role. user_id is None for the pool's own tasks."""
     conn.execute("reset role")
-    row = conn.execute("insert into task_queue (user_id, kind, payload) values (%s, %s, %s) returning id",
-                       (user_id, kind, Jsonb(payload))).fetchone()
+    row = conn.execute(
+        "insert into task_queue (user_id, kind, payload, priority) values (%s, %s, %s, %s) returning id",
+        (user_id, kind, Jsonb(payload), PRIORITY_POOL if kind in POOL_KINDS else PRIORITY_PERSON)).fetchone()
     return row["id"]
 
 
@@ -48,7 +53,7 @@ def claim():
             """update task_queue set status = 'running', locked_at = now(), locked_by = %s,
                    attempts = attempts + 1, updated_at = now()
                where id = (select id from task_queue where status = 'queued' and run_after <= now()
-                           order by id for update skip locked limit 1)
+                           order by priority desc, id for update skip locked limit 1)
                returning *""", (WORKER_ID,)).fetchone()
 
 
@@ -73,8 +78,18 @@ def _failed(task, err: str, retry: bool) -> None:
 
 
 def handle(task) -> None:
-    user_id, p = str(task["user_id"]), task["payload"]
-    if task["kind"] == "process_lead":
+    user_id, p = (str(task["user_id"]) if task["user_id"] else None), task["payload"]
+    if task["kind"] in POOL_KINDS:
+        from . import pool
+        if task["kind"] == "pool_tick":
+            log.info("pool tick: %s", pool.tick())
+        elif task["kind"] == "poll_board":
+            log.info("board %s: %s", p["board_id"], pool.poll_board(p["board_id"], families=p.get("families")))
+        elif task["kind"] == "poll_hn":
+            log.info("hacker news: %s", pool.poll_hn())
+        else:
+            log.info("company %s: %s", p["company_id"], pool.scan_company(p["company_id"]))
+    elif task["kind"] == "process_lead":
         run_mod.process_lead(user_id, p["job_id"], override=p.get("override", False))
     elif task["kind"] == "prepare_application":
         prepare_mod.prepare(user_id, p["match_id"], override=p.get("override", False))
@@ -92,10 +107,32 @@ def handle(task) -> None:
         raise ValueError("unknown task kind " + task["kind"])
 
 
+def schedule_pool() -> None:
+    """Queue a pool tick when none is waiting and the last one is older than the interval. Any
+    number of workers may call this; the check and the insert share one transaction."""
+    if not settings.pool_enabled:
+        return
+    with system_tx() as conn:
+        conn.execute("select pg_advisory_xact_lock(hashtext('jobreach_pool_tick'))")
+        recent = conn.execute(
+            """select 1 from task_queue where kind = 'pool_tick'
+               and (status in ('queued', 'running') or created_at > now() - make_interval(mins => %s)) limit 1""",
+            (settings.pool_tick_minutes,)).fetchone()
+        if recent is None:
+            enqueue(conn, None, "pool_tick", {})
+
+
 def run_forever() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     log.info("worker %s started", WORKER_ID)
+    last_check = 0.0
     while True:
+        if time.monotonic() - last_check > SCHEDULE_CHECK_SECONDS:
+            last_check = time.monotonic()
+            try:
+                schedule_pool()
+            except Exception as e:  # the pool must never stop people's own tasks
+                log.error("pool schedule: %s", e)
         task = claim()
         if task is None:
             time.sleep(settings.worker_poll_seconds)

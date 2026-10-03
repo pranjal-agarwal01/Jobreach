@@ -43,8 +43,10 @@ NO_SKILLS_STATED = 0.6
 EXPERIENCE_CREDIT = {"fits": 1.0, "unstated": 0.85, "stretch": 0.5}
 STRONG_AT, GOOD_AT = 70, 50
 STRONG_SKILLS = 0.7              # a strong match also needs most of the asked-for skills
-WINDOW_DAYS = 30                 # openings older than this are not matched
-SOCIAL_SOURCES = {"paste", "hn"}
+POOL_WINDOW_DAYS = 60            # pool openings posted longer ago than this are not matched
+# A pasted post ages in hours (founders hire within days). Board listings, careers pages and the
+# month-long Hacker News thread stay valid while listed, ranked by age.
+SOCIAL_SOURCES = {"paste"}
 # Words that are tool names but also ordinary English: only a stack field counts for them.
 ORDINARY_WORDS = {"go", "rest", "express", "spark", "swift", "excel", "next", "c", "r"}
 
@@ -143,7 +145,7 @@ def age_now(posted_at: Optional[datetime], fallback: Optional[float] = None) -> 
 
 def opening_from_row(job: dict, contact_rows: list[dict]) -> Opening:
     cols = {k: job.get(k) for k in ("title", "role_family", "employment_type", "exp_min", "exp_max",
-                                    "skills_must", "skills_nice", "work_mode", "city")}
+                                    "skills_must", "skills_nice", "work_mode", "city", "visibility")}
     for k in ("exp_min", "exp_max"):
         cols[k] = float(cols[k]) if cols[k] is not None else None
     return Opening(id=str(job["id"]), ex=Extracted.model_validate(job["extracted"]), cols=cols,
@@ -417,20 +419,27 @@ def match_one(user_id: str, job_id: str, override: bool = False) -> tuple[str, M
 
 def match_user(user_id: str) -> int:
     """Re-score every opening this person can see: the posts they pasted, and active pool
-    openings in their families and neighbours from the last month. Code only."""
+    openings in their kinds of role (and neighbours) that passed the shared screen. Code only.
+    A pool opening that does not suit them is not stored, unless a match row already exists
+    (their pasted posts are, so they can see why one was dropped)."""
     with user_tx(user_id) as conn:
         s = load_seeker(conn)
         fams = sorted(set().union(*(tx.family_with_neighbours(f) for f in s.families))) if s.families else []
         ids = [str(r["id"]) for r in conn.execute(
             """select id from jobs where extracted is not null and (
                    owner_user_id = %s
-                   or (visibility = 'public' and state = 'active' and role_family = any(%s)
+                   or (visibility = 'public' and state = 'active' and status = 'done' and role_family = any(%s)
+                       and coalesce(screen->>'decision', 'keep') = 'keep'
                        and coalesce(posted_at, first_seen_at) > now() - make_interval(days => %s)))""",
-            (user_id, fams, WINDOW_DAYS)).fetchall()]
-        overridden = {str(r["job_id"]) for r in conn.execute("select job_id from matches where overridden").fetchall()}
+            (user_id, fams, POOL_WINDOW_DAYS)).fetchall()]
+        existing = {str(r["job_id"]): r["overridden"] for r in conn.execute(
+            "select job_id, overridden from matches").fetchall()}
         n = 0
         for o in load_openings(conn, ids):
-            ov = o.id in overridden
-            save(conn, user_id, o.id, evaluate(s, o, ov), ov)
+            ov = bool(existing.get(o.id))
+            m = evaluate(s, o, ov)
+            if m.decision == "drop" and o.id not in existing and o.cols.get("visibility") == "public":
+                continue
+            save(conn, user_id, o.id, m, ov)
             n += 1
     return n

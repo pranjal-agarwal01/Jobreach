@@ -241,9 +241,14 @@ def careers_links(base_url: str, html: str, domain: str) -> list[str]:
 
 def harvest_site(domain: str, fetch=None) -> list[Candidate]:
     """Hiring and general addresses on the company's homepage and the careers pages it links
-    to. `fetch(url) -> (final_url, html) | None` defaults to the SSRF-safe fetcher."""
+    to. `fetch(url) -> (final_url, html) | None` defaults to the SSRF-safe fetcher, where the
+    site's robots.txt allows."""
     if fetch is None:
-        from .verify import fetch_html as fetch
+        from ..sources.robots import allowed
+        from .verify import fetch_html
+
+        def fetch(url):
+            return fetch_html(url) if allowed(url) else None
     home = None
     for start in ("https://" + domain, "https://www." + domain):
         home = fetch(start)

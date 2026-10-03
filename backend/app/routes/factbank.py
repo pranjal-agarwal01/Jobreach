@@ -45,35 +45,6 @@ def factbank(user: User = Depends(current_user)):
     }
 
 
-class ConfirmIn(BaseModel):
-    item_ids: list[str] = []
-    bullet_ids: list[str] = []
-    entry_ids: list[str] = []
-    education_ids: list[str] = []
-    fact_ids: list[str] = []
-    confirmed: bool = True
-
-
-@router.post("/factbank/confirm")
-def confirm(body: ConfirmIn, user: User = Depends(current_user)):
-    c = body.confirmed
-    with user_tx(user.id) as conn:
-        for table, ids in (("items", body.item_ids), ("bullets", body.bullet_ids),
-                           ("entries", body.entry_ids), ("education", body.education_ids)):
-            if ids:
-                conn.execute("update {} set confirmed = %s where id = any(%s::uuid[])".format(table), (c, ids))
-        # A confirmed bullet or entry confirms the facts it states, and vice versa for undo.
-        fact_ids = list(body.fact_ids)
-        for table, ids in (("bullets", body.bullet_ids), ("entries", body.entry_ids)):
-            if ids:
-                rows = conn.execute("select fact_ids from {} where id = any(%s::uuid[])".format(table), (ids,)).fetchall()
-                fact_ids += [str(f) for r in rows for f in r["fact_ids"]]
-        if fact_ids:
-            conn.execute("update facts set confirmed_at = case when %s then now() else null end where id = any(%s::uuid[])",
-                         (c, fact_ids))
-    return {"ok": True}
-
-
 def _patch(table: str, id_: str, fields: dict, user: User, json_fields=()):
     if not fields:
         return
