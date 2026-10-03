@@ -400,7 +400,7 @@ function route(method: string, path: string, body: unknown): unknown {
     if (p === "/factbank") return FACTBANK;
     if (p === "/intake/keys") return intakeKeys;
     if (p === "/gmail") return { available: true, connected: gmailConnected(), expired: false,
-      email: gmailConnected() ? DEMO_GMAIL : null, connected_at: gmailConnected() ? ago(0.1) : null };
+      email: gmailConnected() ? DEMO_GMAIL : null, connected_at: gmailConnected() ? ago(0.1) : null, unverified: true };
     if (p === "/tracks") return TRACKS;
     if (p === "/onboarding/review") return review();
     if (p === "/onboarding/status") {

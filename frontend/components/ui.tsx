@@ -1,6 +1,6 @@
 "use client";
 
-import { ButtonHTMLAttributes, ReactNode } from "react";
+import { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -11,10 +11,11 @@ const VARIANTS: Record<Variant, string> = {
   danger: "border border-bad/40 text-bad hover:bg-bad-soft",
 };
 
-export function Button({ variant = "primary", busy, className = "", children, ...rest }:
-  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; busy?: boolean }) {
+export function Button({ variant = "primary", busy, className = "", children, ref, ...rest }:
+  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; busy?: boolean; ref?: Ref<HTMLButtonElement> }) {
   return (
     <button
+      ref={ref}
       {...rest}
       disabled={rest.disabled || busy}
       className={`inline-flex min-h-9 items-center justify-center gap-2 rounded-[10px] px-3.5 py-1.5 text-sm font-semibold

@@ -159,3 +159,31 @@ def test_a_letter_lands_in_gmail_once_with_its_resume(monkeypatch):
     user_db.rows["from drafts"] = {**user_db.rows["from drafts"], "gmail_draft_id": "r-123", "gmail_message_id": "18f0abc"}
     seen.clear()
     assert gmail.create_draft("u", "d1", google(handler))["existing"] is True and seen == []   # never twice
+
+
+@pytest.mark.parametrize("query,result", [
+    ({"error": "access_denied"}, "denied"),                    # Cancel, or "Back to safety"
+    ({"code": "c"}, "unticked"),                               # signed in, but the drafts box left empty
+])
+def test_coming_back_from_google_without_drafts_returns_to_the_same_page_and_says_why(monkeypatch, query, result):
+    from app.routes import gmail as routes
+
+    def not_granted(code, state):
+        raise gmail.NotGranted("Permission to create drafts was not given")
+    monkeypatch.setattr(gmail, "finish_connect", not_granted)
+    resp = routes.callback(state=gmail.sign_state("u", "/leads"), **query)
+    assert resp.status_code == 303 and resp.headers["location"].endswith("/leads?gmail=" + result)
+
+
+def test_a_forged_return_still_lands_inside_jobreach():
+    from app.routes import gmail as routes
+    resp = routes.callback(error="access_denied", state="forged.state")
+    assert resp.headers["location"].endswith("/today?gmail=denied")
+
+
+def test_status_says_whether_google_still_shows_its_unverified_warning(monkeypatch):
+    from app.routes import gmail as routes
+    monkeypatch.setattr(gmail, "configured", lambda: False)
+    for verified in (False, True):
+        monkeypatch.setattr(routes, "settings", SimpleNamespace(google_app_verified=verified))
+        assert routes.status(user=SimpleNamespace(id="u"))["unverified"] is (not verified)

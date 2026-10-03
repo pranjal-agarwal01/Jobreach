@@ -45,13 +45,25 @@ allows drafts (`gmail.compose`) is one Google classes as restricted.
 ## What testers will see
 
 - **Continue with Google** on the sign-in page: no password and no confirmation email.
-- **Connect Gmail** on Today and Add leads. Google shows "Google hasn't verified this app" while
-  the app is in Testing: choose Continue. It then asks to let Jobreach "manage drafts and send
-  emails": Gmail has no drafts-only permission, and Jobreach only ever creates drafts (the code
-  refuses every other Gmail call).
+- **Connect Gmail** on Today and Add leads. Before anyone is sent to Google, Jobreach shows a short
+  guide to the pages Google will show:
+  1. choose the Gmail account;
+  2. "Google hasn't verified this app" while the app is in Testing: press Continue, not "Back to
+     safety" ("Access blocked" means the address isn't a test user yet);
+  3. "Manage drafts and send emails": tick the box if there is one, then Continue. Gmail has no
+     drafts-only permission, and Jobreach only ever creates drafts (the code refuses every other
+     Gmail call);
+  4. back in Jobreach.
+
+  If the drafts box is left unticked, Jobreach says so and offers to try again.
 - Letters that pass every check land in Gmail Drafts with the resume attached; ones that need a
   look have a **Draft in Gmail** button on their page. Disconnecting (Profile → Gmail) removes the
   access at Google.
+
+## When Google has verified the app
+
+Set `GOOGLE_APP_VERIFIED=1` (backend/.env and Render). The guide then leaves out the "Google hasn't
+verified this app" step, and anyone can connect without being listed as a test user.
 
 ## When the API runs on Render
 

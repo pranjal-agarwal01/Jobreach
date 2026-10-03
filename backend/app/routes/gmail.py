@@ -21,7 +21,7 @@ def status(user: User = Depends(current_user)):
     c = gmail.connection(user.id) if gmail.configured() else None
     return {"available": gmail.configured(), "connected": bool(c and c["status"] == "active"),
             "expired": bool(c and c["status"] == "expired"), "email": c["email"] if c else None,
-            "connected_at": c["connected_at"] if c else None}
+            "connected_at": c["connected_at"] if c else None, "unverified": not settings.google_app_verified}
 
 
 class ConnectIn(BaseModel):
@@ -43,16 +43,18 @@ def callback(code: Optional[str] = None, state: Optional[str] = None, error: Opt
         sep = "&" if "?" in path else "?"
         return RedirectResponse(settings.frontend_url + path + sep + urlencode({"gmail": result}), status_code=303)
 
+    try:
+        _, path = gmail.read_state(state or "")
+    except gmail.GmailError:
+        path = "/today"
     if error or not code or not state:
-        try:
-            _, path = gmail.read_state(state or "")
-        except gmail.GmailError:
-            path = "/today"
         return back(path, "denied" if error == "access_denied" else "error")
     try:
         user_id, email, path = gmail.finish_connect(code, state)
+    except gmail.NotGranted:
+        return back(path, "unticked")
     except gmail.GmailError:
-        return back("/today", "error")
+        return back(path, "error")
     queued = gmail.queue_ready(user_id)
     audit(user_id, "gmail_connected", {"drafts_queued": queued})
     return back(path, "connected")

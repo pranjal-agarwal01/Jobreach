@@ -70,7 +70,7 @@ export default function JobFolderPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [justSent, setJustSent] = useState(false);
   const [drafting, setDrafting] = useState(false);
-  const { status: gmailStatus, connect: gmailConnect } = useGmail();
+  const { status: gmailStatus, connect: gmailConnect, guide: gmailGuide } = useGmail();
   const load = useCallback(() => api.get<AppDetail>(`/applications/${id}`).then(setD).catch((e) => setError(e.message)), [id]);
   useEffect(() => { load(); }, [load]);
   // While a Gmail draft is being made, look again every couple of seconds (about 30 s at most).
@@ -230,6 +230,7 @@ export default function JobFolderPage() {
                     )}</>}
               </p>
               <Checks draft={draft} failed={failed.length} />
+              {gmailGuide}
             </>
           ) : (
             <article className="paper p-6">

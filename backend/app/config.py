@@ -59,6 +59,9 @@ class Settings:
     google_client_id: str = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
     google_client_secret: str = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
     token_encryption_key: str = os.environ.get("TOKEN_ENCRYPTION_KEY", "").strip()
+    # Until Google verifies the app, people see "Google hasn't verified this app" before the
+    # consent screen, and the connect guide tells them what to press. Set to 1 once verified.
+    google_app_verified: bool = os.environ.get("GOOGLE_APP_VERIFIED", "0").strip() in ("1", "true", "yes")
     # Database connections this process may hold. The API and the worker share Supabase's
     # pooler, so each is kept small.
     db_pool_max: int = int(os.environ.get("DB_POOL_MAX", "10"))

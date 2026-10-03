@@ -51,6 +51,10 @@ class Expired(GmailError):
     """Google no longer accepts the stored access (revoked, or a test app's 7-day limit)."""
 
 
+class NotGranted(GmailError):
+    """The person allowed sign-in but left the drafts box unticked on Google's page."""
+
+
 def configured() -> bool:
     return bool(settings.google_client_id and settings.google_client_secret and settings.token_encryption_key)
 
@@ -154,7 +158,7 @@ def finish_connect(code: str, state: str, client: Optional[httpx.Client] = None)
     tok = r.json()
     granted = set((tok.get("scope") or "").split())
     if SCOPES[2] not in granted:
-        raise GmailError("Permission to create drafts was not given")
+        raise NotGranted("Permission to create drafts was not given")
     if not tok.get("refresh_token"):
         raise GmailError("Google did not return lasting access; disconnect Jobreach in your Google account and try again")
     email = email_from_id_token(tok.get("id_token", "")) or "your Gmail"

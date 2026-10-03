@@ -167,6 +167,8 @@ export interface Draft {
 /** The person's Gmail connection: letters are created as drafts there. */
 export interface GmailStatus {
   available: boolean; connected: boolean; expired: boolean; email: string | null; connected_at: string | null;
+  /** Google still shows "Google hasn't verified this app" before its consent screen. */
+  unverified: boolean;
 }
 export interface EventRow { id: Id; type: string; occurred_at: string; deadline_at: string | null; summary: string | null }
 export interface AppDetail {
