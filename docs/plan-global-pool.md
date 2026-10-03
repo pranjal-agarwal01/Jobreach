@@ -1,6 +1,6 @@
 # Plan: simpler onboarding, global opportunity pool, per-user matching
 
-Status: agreed 2026-10-01. Phases 1 to 3 built (2026-10-02); phases 4 and 5 to come.
+Status: agreed 2026-10-01. All five phases built (2026-10-03). onboarding_messages is kept read-only for now.
 It changes the founder's flow from 2026-10-01 (commit 2b67578) and spec sections 4.1, 4.2 and 13 (Phase 3).
 
 ## 0. Where this plan departs from the brief, and why

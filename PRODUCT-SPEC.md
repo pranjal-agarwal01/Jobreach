@@ -221,8 +221,12 @@ the resume and email built per lead.
 
 1. **The user presses Send and Submit. Always.** The product never sends email and never submits
    an application.
-2. **Selection, never invention.** Every resume line and every claim in an email traces to a
-   confirmed fact in that user's fact bank. No invented metrics, skills, dates or counts.
+2. **Selection, never invention.** Every resume line and every claim in an email traces to the
+   user's own record: a line found in the documents they gave (code checks each line's numbers,
+   tools and wording against those documents), or a line they wrote or restored themselves. A
+   line that cannot be found is left out and shown to the user, never used silently. No invented
+   metrics, skills, dates or counts. (Changed 2026-10-01: confirming every line by hand became
+   this check; see `docs/plan-global-pool.md`.)
 3. **Counts that cannot be shown stay vague.** For example "multiple clients", never an invented
    "5+".
 4. **Only published contacts.** An email address must appear verbatim in the post, the JD or the
@@ -243,34 +247,38 @@ the resume and email built per lead.
 
 ## 4. User journey and features
 
-### 4.1 Onboarding (target: about 10 minutes)
+### 4.1 Onboarding (target: about 3 minutes of the user's time)
 
-1. **Upload** existing resume(s) (PDF or DOCX), links (GitHub, portfolio, LeetCode and similar),
-   and a free-text "about me".
-2. **Extract** a draft fact bank: education, projects, roles, awards, skills, and every number
-   attached to them. Show every fact for confirmation; nothing is used until confirmed.
-3. **Guided interview** (chat) to find what is missing: freelance or client work, deployed things,
-   users, hackathons, positions of responsibility. Ask targeted questions for missing metrics
-   ("roughly how many people use it?"). If the user does not know, leave it out. Never estimate.
-4. **Evidence check:** every listed skill should be backed by a project or role. Unbacked skills
-   are flagged, not silently kept.
-5. **Preferences:** role types, primary track, locations and remote, stipend floor and currency,
-   unpaid policy (default: draft with floor if remote, drop if onsite or hybrid), excluded company
-   types (e.g. big tech), batch year, CGPA, duration flexibility, earliest start date.
-6. **Tracks:** propose 1 to 4 tracks from the evidence. The user approves each track's title
-   line, summary, project order and skills list.
-7. **Format:** Phase 1 ships one template (the two-column layout in section 6). User format rules
-   (for example "no experience section") are stored as settings and respected.
-8. **Signature block**, stored verbatim.
-9. **Generate baselines** per track, page-verified, with a preview.
+One form, one background build, one review (rewritten 2026-10-02; `docs/plan-global-pool.md`, B).
+The guided interview, per-line confirmation and the role audit are gone.
+
+1. **One form:** CVs (PDF or DOCX); stage (student, recent graduate, experienced); up to four
+   kinds of role (role families, `backend/app/taxonomy.py`); GitHub, portfolio and LinkedIn links
+   (LinkedIn is stored for the resume header, never read); anything the CV leaves out; and the
+   preferences. Defaults follow the stage: a student gets internships, a monthly stipend floor and
+   the unpaid policy (draft with the floor if remote, drop if onsite or hybrid); everyone else
+   gets full-time roles, a yearly salary floor and a notice period. Consent is a checkbox here.
+2. **A background build, with nothing asked:** read the CVs, GitHub (repositories and up to six
+   READMEs) and the portfolio; extract the profile; hold every line to those documents in code
+   (principle 2); count full-time years from work dates (internships do not count) and set the
+   experience band; write one baseline resume per kind of role, with an honest fit (strong, good,
+   stretch) and its gaps; render and page-check each to one page.
+3. **One review:** the profile in a sentence, the baselines, the lines that were left out (each
+   with "use it anyway"), other kinds of role the work fits, and one question: would you like to
+   add, remove or change anything? Edits re-render the affected baselines.
+4. **Format and signature** as before: one template in Phase 1, format rules stored as settings,
+   the signature block stored verbatim.
+5. **Finishing** registers the user's (kind of role, experience band) segments with the shared
+   opportunity pool, and the openings already in it are matched at once.
 
 ### 4.2 Adding leads
 
 | Source | Phase | Notes |
 |---|---|---|
-| **Paste** a post, JD or URL text | 1 | The user copies the text themselves. The safest route |
-| Public ATS job-board APIs (Greenhouse, Lever, Ashby) | 3 | Public, no auth. Skews to larger companies |
-| Careers pages of verified companies | 3 | Fetch the page, extract openings and any published careers address |
+| **Paste** a post, JD or URL text | Built | The user copies the text themselves. Prepared at once |
+| Public ATS job-board APIs (Greenhouse, Lever, Ashby) | Built (shared pool) | Public, no auth. Read on the server every 6 hours while someone needs a kind of role. Skews to funded companies |
+| Careers pages of verified companies | Built (shared pool) | Openings in the page's JobPosting markup, the job board it links to, published hiring addresses. robots.txt respected |
+| Hacker News "Who is hiring" | Built (shared pool) | Public API, twice a day. Mostly remote roles |
 | Browser extension "clip this post" | Maybe, after legal review | **Grey area under LinkedIn's terms** (section 11.1) |
 
 ### 4.3 Workspace ("personal space")

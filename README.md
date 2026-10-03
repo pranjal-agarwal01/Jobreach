@@ -1,9 +1,11 @@
 # Jobreach
 
-A student gives their real history once. For every good, fresh opening they paste, Jobreach
-screens it, checks the company is real, builds a truthful one-page resume from their confirmed
-facts, and drafts the outreach email. **The student presses Send.** Jobreach never sends email,
-never submits applications, and never touches LinkedIn. See [PRODUCT-SPEC.md](PRODUCT-SPEC.md).
+A job seeker gives their real history once. Jobreach finds openings on its own (public company job
+boards, careers pages, Hacker News), scores each one against their own work, and for the ones they
+pick builds a truthful one-page resume and drafts the outreach email. Posts they find themselves
+can be pasted too. **The person presses Send.** Jobreach never sends email, never submits
+applications, and never touches LinkedIn. See [PRODUCT-SPEC.md](PRODUCT-SPEC.md) and
+[docs/plan-global-pool.md](docs/plan-global-pool.md).
 
 | Part | What | Where |
 |---|---|---|
@@ -26,7 +28,8 @@ Needs Python 3.10+, Node 20+, LibreOffice (`winget install TheDocumentFoundation
    .venv/Scripts/python -m pip install -r backend/requirements.txt
    cd backend
    ../.venv/Scripts/python -m uvicorn app.main:app --port 8000      # API
-   ../.venv/Scripts/python -m app.worker                            # pipeline, in a second terminal
+   ../.venv/Scripts/python -m app.worker                            # pipeline and pool, in a second terminal
+   ../.venv/Scripts/python scripts/seed_boards.py                   # once: the pool's starting job boards
    ```
 3. **Frontend.** `frontend/.env.local` holds only public values (copy `frontend/.env.example`).
    ```bash
@@ -76,6 +79,32 @@ S1 to contacts run once per opening (`pipeline/opportunity.py`). S5 to S8 run wh
 opens a match and presses "Prepare letter" (`pipeline/prepare.py`); a pasted post is prepared
 straight away. Matching is code only, so it reruns whenever the profile, preferences or resumes
 change.
+
+## The shared pool
+
+Openings are collected on the server, once, for everyone they may suit (`app/pool.py`,
+`app/sources/`). Nothing logs in anywhere and nothing reads LinkedIn.
+
+- **Sources:** the public job feeds of company boards on Greenhouse, Lever and Ashby; the job
+  listings on companies' own careers pages (schema.org JobPosting markup, robots.txt respected);
+  the Hacker News "Who is hiring" thread.
+- **Which boards:** a starting list (`scripts/seed_boards.py`), plus every board a company's own
+  site links to. Companies enter through the company check, including every company a user
+  pastes a post from.
+- **When:** the worker queues a pool tick every 15 minutes. A board is read every 6 hours while
+  some user needs a kind of role (a `pool_segments` row); a kind someone just started needing
+  gets every board read for it at once. Nobody needs anything: nothing is read.
+- **What is read:** code passes on postings nobody could want before any model sees them (a kind
+  of role nobody targets, not in India or open to it, a seniority nobody needs). The rest go
+  through the global half of the pipeline, five per task, below anything a person is waiting for.
+- **Expiry:** a listing that leaves its board, or goes unseen for 30 days, expires; contact
+  details of expired openings are deleted 30 days after they were last seen.
+- **Prepared ahead:** each day, up to three of a person's strongest fresh matches get their letter
+  and resume prepared before they open them, for people who used the app in the last week.
+
+Settings (`backend/.env`): `POOL_ENABLED` (default 1), `POOL_TICK_MINUTES` (15),
+`PREWARM_PER_DAY` (3). `backend/scripts/acceptance_pool.py` checks the pool live against real
+boards.
 
 Every model call is logged with tokens and cost (`llm_calls`); Profile → Usage shows it.
 
