@@ -46,7 +46,7 @@ STRONG_SKILLS = 0.7              # a strong match also needs most of the asked-f
 POOL_WINDOW_DAYS = 60            # pool openings posted longer ago than this are not matched
 # A post (pasted, or found by the person's own agent) ages in hours (founders hire within days). Board listings, careers pages and the
 # month-long Hacker News thread stay valid while listed, ranked by age.
-SOCIAL_SOURCES = {"paste", "agent"}
+SOCIAL_SOURCES = {"paste", "agent", "curated"}
 # Words that are tool names but also ordinary English: only a stack field counts for them.
 ORDINARY_WORDS = {"go", "rest", "express", "spark", "swift", "excel", "next", "c", "r"}
 

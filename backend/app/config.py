@@ -72,6 +72,9 @@ class Settings:
     pool_tick_minutes: int = int(os.environ.get("POOL_TICK_MINUTES", "15"))
     # Discovery (discover.py): new companies from Y Combinator's directory and funding news.
     discovery_enabled: bool = os.environ.get("DISCOVERY_ENABLED", "1").strip() not in ("0", "false", "no")
+    # Accounts that may add posts to everyone's pool (curated.py): their email addresses, comma separated.
+    curator_emails: frozenset = frozenset(e.strip().lower() for e in os.environ.get("CURATOR_EMAILS", "").split(",")
+                                          if e.strip())
     # Strong, fresh matches prepared before the person opens them, per person per day.
     prewarm_per_day: int = int(os.environ.get("PREWARM_PER_DAY", "3"))
     # Bump whenever the consent notice changes (2026-10-01: model processor is Azure OpenAI).

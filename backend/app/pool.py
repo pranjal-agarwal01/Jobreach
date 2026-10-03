@@ -342,7 +342,7 @@ def prewarm(per_day: Optional[int] = None) -> int:
                 """select m.id::text from matches m join jobs j on j.id = m.job_id
                    left join applications a on a.job_id = m.job_id
                    where m.decision = 'keep' and m.bucket = 'strong' and m.prepare_status is null
-                     and m.dismissed_at is null and a.id is null and j.state = 'active'
+                     and m.dismissed_at is null and a.id is null and j.state = 'active' and j.source <> 'curated'
                      and coalesce(j.posted_at, j.first_seen_at) > now() - interval '7 days'
                    order by m.score desc limit %s""", (room,)).fetchall()]
             for mid in picks:

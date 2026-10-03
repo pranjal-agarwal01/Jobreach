@@ -101,6 +101,9 @@ def _failed(task, err: str, retry: bool) -> None:
             ("failed" if final else "queued", err[:2000], 30 * 2 ** task["attempts"], task["id"]))
     if final and task["kind"] == "process_lead":
         run_mod.fail(str(task["user_id"]), task["payload"]["job_id"], err)
+    elif final and task["kind"] == "process_curated":
+        from . import curated
+        curated.fail(task["payload"]["job_id"], err)
     elif final and task["kind"] == "prepare_application":
         prepare_mod.fail(str(task["user_id"]), task["payload"]["match_id"], err)
     elif final and task["kind"] in ("build_profile", "calibrate_tracks", "add_family"):
@@ -131,6 +134,9 @@ def handle(task) -> None:
     elif task["kind"] == "process_lead":
         run_mod.process_lead(user_id, p["job_id"], override=p.get("override", False),
                              prepare=p.get("prepare", "always"))
+    elif task["kind"] == "process_curated":
+        from . import curated
+        log.info("curated %s: %s", p["job_id"], curated.process(p["job_id"]))
     elif task["kind"] == "gmail_draft":
         gmail.create_draft(user_id, p["draft_id"])
         from . import send

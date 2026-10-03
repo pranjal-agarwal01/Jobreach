@@ -77,3 +77,56 @@ and the strong and good matches on **Today** with their letters.
 > `found_by` (the search you ran). Do not extract emails, verify companies, write letters or
 > create Gmail drafts: Jobreach does that. A `duplicate` status means it already has the post.
 > Keep the key secret. Keep to about 8 LinkedIn searches per run.
+
+## 6. Everyone's pool (curators only)
+
+An account on the server's curator list (`CURATOR_EMAILS`) can make a key whose posts go to
+**everyone's pool** instead of its own leads: Profile → Your agent → "Its posts go to: Everyone's
+pool". Same address, same format, plus one optional field:
+
+| Field | What it is |
+|---|---|
+| `combo` | The search combination that found it, e.g. `"student / backend"`, so you can see later which combinations bring openings people reply to |
+
+What happens to each post:
+
+- **One post, one opening.** Its identity is its LinkedIn activity number (from the link, in any
+  of LinkedIn's link forms), else its link without tracking, else its text with case, spacing,
+  links, "...see more" and hashtags ignored. A post already in the pool, sent by any key, under any
+  combo, comes back `duplicate` and costs nothing.
+- It is read once (company check, the address only from the post itself), then matched for every
+  user who targets that kind of role.
+- **Letters for the best three only.** The three strongest matches (strong or good) get a letter
+  prepared, so one poster never receives a pile of near-identical letters. Everyone else it suits
+  sees it among their openings and can still choose to apply.
+- **Nobody writes twice to one company.** If someone already pasted the same post, or already has a
+  letter for that company, they are skipped: the database allows one letter per person per company.
+
+Limits: 25 posts per call, 500 a day into the pool.
+
+### The ten search combinations
+
+LinkedIn → search → **Posts**, filters **Date posted: Past 24 hours**, **Sort by: Latest**. Run each
+search every 2 to 3 hours and stop a search when Jobreach answers `duplicate` for most of what it
+returns: everything newer has been sent.
+
+| `combo` | Search (LinkedIn understands quotes and OR) |
+|---|---|
+| `student / software engineering` | `"SDE intern" OR "software engineering intern" OR "software developer intern" hiring` |
+| `student / backend` | `"backend intern" OR "backend developer intern" OR "node.js intern" OR "python developer intern" hiring` |
+| `student / frontend` | `"frontend intern" OR "react intern" OR "front end developer intern" hiring` |
+| `student / full stack` | `"full stack intern" OR "MERN stack intern" OR "full stack developer intern" hiring` |
+| `student / ai and ml` | `"machine learning intern" OR "AI intern" OR "ML intern" OR "GenAI intern" hiring` |
+| `student / data analytics` | `"data analyst intern" OR "data analytics intern" OR "business analyst intern" hiring` |
+| `recent graduate / software engineering` | `fresher "software engineer" OR "SDE 1" OR "backend developer" OR "java developer" hiring` |
+| `recent graduate / full stack` | `fresher "full stack developer" OR "frontend developer" OR "react developer" hiring` |
+| `recent graduate / ai, ml and data` | `fresher "data analyst" OR "data scientist" OR "ML engineer" OR "AI engineer" hiring` |
+| `experienced / backend and devops` | `"backend engineer" OR "SDE 2" OR "DevOps engineer" OR "cloud engineer" "2+ years" hiring` |
+
+Send every hiring post a search finds, also those without an email: Jobreach decides the route
+(a letter when the post publishes an address, otherwise the apply link). Posts outside India
+that aren't open to India are skipped by Jobreach, not by the agent.
+
+**The LinkedIn account doing the searching is yours, and LinkedIn's terms don't allow automated
+use.** Keep the agent at a human pace (a few searches an hour, pauses between pages) so the
+account isn't restricted. Jobreach itself never logs into LinkedIn.

@@ -4,6 +4,11 @@ Ideas agreed in conversation and parked on purpose. Nothing here is built.
 
 ## "Add to pool": LinkedIn posts collected by hand, for everyone (parked 2026-10-03)
 
+**Partly built (2026-10-03):** the agent path is live: a curator's pool key sends posts to
+everyone's pool (docs/agent-intake.md section 6, app/curated.py), with one opening per post and
+letters for the best three matches. Still parked: the "Add to pool" page for pasting by hand and
+the spreadsheet upload.
+
 The founder copies public LinkedIn hiring posts by hand and adds them to the **shared pool**, so
 every matching user gets a letter from them (unlike a paste or an agent's post, which stays
 private to one person).

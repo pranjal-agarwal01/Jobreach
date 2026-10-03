@@ -76,6 +76,8 @@ export interface Me {
   user: { id: Id; email: string | null }; profile: Profile; preferences: Preferences;
   counts: { items: number; bullets: number; tracks: number; applications: number };
   consent_version: string; needs_consent: boolean;
+  /** May add posts to everyone's pool (the server's curator list). */
+  is_curator?: boolean;
 }
 
 export interface Track {
@@ -98,7 +100,11 @@ export interface Lead {
 }
 
 /** A personal key the person's own agent uses to send the posts it finds (shown once when made). */
-export interface IntakeKey { id: Id; name: string; prefix: string; created_at: string; last_used_at: string | null }
+export interface IntakeKey {
+  id: Id; name: string; prefix: string; created_at: string; last_used_at: string | null;
+  /** private: the key holder's own leads. pool: everyone's pool (curators only). */
+  scope: "private" | "pool";
+}
 
 // ------------------------------------------------------------------ opportunities (matches)
 

@@ -38,6 +38,7 @@ def me(user: User = Depends(current_user)):
                       (select count(*) from applications) as applications""").fetchone()
     return {"user": {"id": user.id, "email": user.email}, "profile": profile, "preferences": prefs,
             "counts": counts, "consent_version": settings.consent_version,
+            "is_curator": bool(user.email) and user.email.lower() in settings.curator_emails,
             "needs_consent": profile["consent_version"] != settings.consent_version}
 
 

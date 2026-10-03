@@ -75,7 +75,7 @@ const me: Me = {
     notice_period: null,
   },
   counts: { items: 2, bullets: 6, tracks: 1, applications: 6 },
-  consent_version: "2026-10-01", needs_consent: false,
+  consent_version: "2026-10-01", needs_consent: false, is_curator: true,
 };
 
 interface Co { id: string; company: string; domain: string; role: string; status: string; route: "email" | "portal";
@@ -175,7 +175,7 @@ function draftFor(c: Co) {
 }
 
 let intakeKeys: IntakeKey[] = [{ id: "k1", name: "LinkedIn agent", prefix: "jri_4kTq9xWm", created_at: ago(30),
-  last_used_at: ago(2) }];
+  last_used_at: ago(2), scope: "private" }];
 
 let links: Record<string, ResumeLink> = {
   ra5: { token: "demoQuill12", url: "http://localhost:8000/r/demoQuill12", opens: 3, last_opened_at: ago(30), created_at: ago(50) },
@@ -504,8 +504,9 @@ function route(method: string, path: string, body: unknown): unknown {
   if (p.endsWith("/gmail-draft")) return { queued: true };
   if (p === "/intake/keys" && method === "POST") {
     const key = "jri_demoOnlyNotARealKey" + Math.random().toString(36).slice(2, 10);
-    const row = { id: "k" + (intakeKeys.length + 1), name: (body as { name: string }).name, prefix: key.slice(0, 12),
-      created_at: new Date().toISOString(), last_used_at: null };
+    const b = body as { name: string; scope?: "private" | "pool" };
+    const row: IntakeKey = { id: "k" + (intakeKeys.length + 1), name: b.name, prefix: key.slice(0, 12),
+      created_at: new Date().toISOString(), last_used_at: null, scope: b.scope ?? "private" };
     intakeKeys = [row, ...intakeKeys];
     return { ...row, key };
   }

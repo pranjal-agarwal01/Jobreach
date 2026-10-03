@@ -57,7 +57,7 @@ export default function ProfilePage() {
           </div>
         )}
         {tab === "gmail" && <GmailCard />}
-        {tab === "agent" && <AgentIntake />}
+        {tab === "agent" && <AgentIntake curator={!!me.is_curator} />}
         {tab === "data" && <DataTab />}
       </div>
     </div>
