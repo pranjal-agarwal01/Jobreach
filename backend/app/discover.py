@@ -92,9 +92,12 @@ def _get(url: str, timeout: float = 30.0) -> Optional[httpx.Response]:
 
 
 def yc_candidates(data: list[dict]) -> list[Found]:
-    """Directory companies marked as hiring, still active, in India or fully remote, with a site."""
+    """Directory companies marked as hiring, still active, in India or fully remote, with a site.
+    Companies in India come first, then the newest: the directory lists the oldest first, and those
+    are mostly large American companies."""
     out = []
-    for c in data:
+    in_india = lambda c: "India" in (c.get("regions") or []) or "India" in (c.get("all_locations") or "")  # noqa: E731
+    for c in sorted(data, key=lambda c: (not in_india(c), -(c.get("launched_at") or 0))):
         regions = set(c.get("regions") or [])
         where = c.get("all_locations") or ""
         if not c.get("isHiring") or (c.get("status") or "Active") != "Active" or not c.get("website"):

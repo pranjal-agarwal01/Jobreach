@@ -160,3 +160,10 @@ def test_a_queued_company_is_checked_from_its_task(monkeypatch):
     monkeypatch.setattr(discover, "register", lambda f: got.append(f) or "c1")
     from dataclasses import asdict
     assert discover.discover_company(asdict(found("https://kiwi.example"))) == "c1" and got[0].website == "https://kiwi.example"
+
+
+def test_directory_companies_in_india_come_first_then_the_newest():
+    data = [dict(yc("Old Remote", ["Fully Remote"]), launched_at=1_300_000_000),
+            dict(yc("New Remote", ["Fully Remote"]), launched_at=1_700_000_000),
+            dict(yc("Old India", ["India"]), launched_at=1_200_000_000)]
+    assert [f.name for f in discover.yc_candidates(data)] == ["Old India", "New Remote", "Old Remote"]
