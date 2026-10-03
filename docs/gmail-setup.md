@@ -16,8 +16,9 @@ allows drafts (`gmail.compose`) is one Google classes as restricted.
    support email, your developer contact email.
 4. **Audience**: user type **External**, publishing status **Testing**. Under Test users, add
    every Gmail address that will test (your three).
-5. **Data access** → Add or remove scopes: `openid`, `.../auth/userinfo.email` and
-   `https://www.googleapis.com/auth/gmail.compose` (search "gmail.compose"). Save.
+5. **Data access** → Add or remove scopes: `openid`, `.../auth/userinfo.email`,
+   `.../auth/userinfo.profile` and `https://www.googleapis.com/auth/gmail.compose` (search
+   "gmail.compose"). Save.
 6. **Clients** → Create client → **Web application**, name `Jobreach web`.
    - Authorized JavaScript origins: `http://localhost:3000`
    - Authorized redirect URIs:
@@ -37,8 +38,14 @@ allows drafts (`gmail.compose`) is one Google classes as restricted.
 
 ## Supabase (supabase.com/dashboard/project/pksaqwmgibkuyydlwdfb)
 
-8. Authentication → Sign In / Providers → **Google**: enable it and paste the same Client ID and
-   Client secret. Save.
+8. Open the Google provider directly:
+   https://supabase.com/dashboard/project/pksaqwmgibkuyydlwdfb/auth/providers?provider=Google
+   (or Authentication → Sign In / Providers → the **Supabase Auth** tab → Auth Providers → Google;
+   not the Third-Party Auth tab). Turn on "Enable Sign in with Google", paste the same Client ID
+   and Client secret, and Save. Its Callback URL is the second redirect URI in step 6.
+
+   Leave **OAuth Server** (Authentication → OAuth Server) off: it would make Jobreach a sign-in
+   provider for other apps, which Jobreach doesn't need.
 9. Authentication → URL Configuration: Site URL `http://localhost:3000`, and add
    `http://localhost:3000/**` to Redirect URLs.
 
