@@ -63,7 +63,7 @@ export default function JobsPage() {
         <div className="rounded-2xl border border-dashed border-border-strong">
           <Empty action={apps.length === 0 ? <Link href="/leads"><Button>Paste a post</Button></Link> : undefined}>
             {apps.length === 0
-              ? "Your first folder appears here when a pasted post passes the checks: the letter and a resume made for that company, side by side."
+              ? "Your first folder appears here when you prepare a letter for an opening: the letter and a resume made for that company, side by side."
               : "No folders match. Try another filter or search."}
           </Empty>
         </div>

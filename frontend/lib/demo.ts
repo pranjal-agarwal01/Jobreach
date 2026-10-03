@@ -322,7 +322,9 @@ function opportunity(o: Opp): Opportunity {
     role_family: o.family, employment_type: o.kind, work_mode: o.mode, city: o.city, exp_min: o.kind === "both" ? 0 : null,
     exp_max: o.kind === "both" ? 1 : null, pay_min: o.pay?.[0] ?? null, pay_max: o.pay?.[1] ?? null,
     pay_currency: o.pay ? "INR" : null, pay_period: o.pay ? "month" : null, skills_must: o.must, skills_nice: o.nice,
-    source: "paste", source_ref: null, visibility: "private", first_seen_at: ago(o.age), age_hours: o.age,
+    // An opening with a portal came from the company's job board through the shared pool.
+    source: o.portal ? "greenhouse" : "paste", source_ref: o.portal ?? null, visibility: o.portal ? "public" : "private",
+    first_seen_at: ago(o.age), age_hours: o.age,
     domain: o.domain, verification: "pass", contact_email: o.contact?.email ?? null, contact_name: o.contact?.person_name ?? null,
     contact_role: o.contact?.person_role ?? null, contact_context: o.contact?.context ?? null,
     application_id: st.app ?? null, application_status: st.app ? "drafted" : null,

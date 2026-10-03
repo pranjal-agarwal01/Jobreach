@@ -39,7 +39,7 @@ export default function TodayPage() {
     who,
     n && openings ? `${openings} more opening${openings === 1 ? "" : "s"} below, best match first.` : null,
     n && freshest !== null ? `The freshest post is ${hoursLabel(freshest)} old; founders reply most to posts under six hours, so start at the top.` : null,
-    !n && !openings ? "Paste a fresh post from LinkedIn or a careers page. It's scored against your profile and its letter is ready in about two minutes." : null,
+    !n && !openings ? "Openings from company job boards are scored for you as they're found, and appear here. Found a post yourself? Paste it and its letter is ready in about two minutes." : null,
   ].filter(Boolean).join(" ");
 
   return (
@@ -93,8 +93,9 @@ export default function TodayPage() {
             {openings === 0 ? (
               <div className="rounded-2xl border border-dashed border-border-strong">
                 <Empty action={<Link href="/leads"><Button>Paste a post</Button></Link>}>
-                  Each opening you add is checked, scored against your profile with the reasons and gaps spelled out, and
-                  given a letter and a resume tailored to it. You read them, attach the PDF and press Send.
+                  Jobreach reads company job boards for the kinds of role you target. Each opening is checked and scored
+                  against your own work, with the reasons and gaps spelled out. Pick one and its letter and tailored resume
+                  are ready in about a minute. You read them, attach the PDF and press Send.
                 </Empty>
               </div>
             ) : ORDER.filter((b) => t.groups[b].length > 0).map((b) => <Group key={b} bucket={b} t={t} reload={load} />)}

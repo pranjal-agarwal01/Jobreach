@@ -205,7 +205,7 @@ export default function JobFolderPage() {
 
           <details className="group rounded-2xl border border-border bg-surface">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-semibold">
-              The post you pasted <IconChevronDown size={18} className="text-muted transition-transform group-open:rotate-180" />
+              {a.source === "paste" ? "The post you pasted" : "The original listing"} <IconChevronDown size={18} className="text-muted transition-transform group-open:rotate-180" />
             </summary>
             <pre className="whitespace-pre-wrap border-t border-border px-5 py-4 font-sans text-sm leading-relaxed text-text-2">{d.job.raw_text}</pre>
           </details>
@@ -249,7 +249,7 @@ export default function JobFolderPage() {
               )}
             </div>
             {a.business_summary && <p className="mt-3 text-sm leading-relaxed text-text-2">{a.business_summary}</p>}
-            {a.source_ref && <a className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline" href={a.source_ref} target="_blank" rel="noreferrer"><IconExternal size={15} /> Original post</a>}
+            {a.source_ref && <a className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline" href={a.source_ref} target="_blank" rel="noreferrer"><IconExternal size={15} /> {a.source === "paste" ? "Original post" : "See the listing"}</a>}
           </section>
 
           <Outcomes id={id} events={events} reload={load} />

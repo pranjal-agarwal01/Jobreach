@@ -153,7 +153,7 @@ export default function OpportunityPage() {
 
           <details className="group rounded-2xl border border-border bg-surface">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-semibold">
-              The post <IconChevronDown size={18} className="text-muted transition-transform group-open:rotate-180" />
+              {o.source === "paste" ? "The post you pasted" : "The original listing"} <IconChevronDown size={18} className="text-muted transition-transform group-open:rotate-180" />
             </summary>
             <pre className="whitespace-pre-wrap border-t border-border px-5 py-4 font-sans text-sm leading-relaxed text-text-2">{o.job.raw_text}</pre>
           </details>
@@ -173,7 +173,7 @@ export default function OpportunityPage() {
                 )}
               </div>
               {o.company.business_summary && <p className="mt-3 text-sm leading-relaxed text-text-2">{o.company.business_summary}</p>}
-              {o.source_ref && <a className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline" href={o.source_ref} target="_blank" rel="noreferrer"><IconExternal size={15} /> Original post</a>}
+              {o.source_ref && <a className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline" href={o.source_ref} target="_blank" rel="noreferrer"><IconExternal size={15} /> {o.source === "paste" ? "Original post" : "See the listing"}</a>}
             </section>
           )}
         </aside>
