@@ -67,7 +67,7 @@ def find_stack(rm, compartment: str, name: str):
     sys.exit("No stack called {!r}. Stacks here: {}".format(name, ", ".join(s.display_name for s in stacks) or "none"))
 
 
-def wait_for(rm, job_id: str, every: int = 15):
+def wait_for(rm, job_id: str, every: int = 30):
     while True:
         job = call(rm.get_job, job_id).data
         if job.lifecycle_state in DONE:
@@ -92,7 +92,7 @@ def public_ip(compute, network, compartment: str):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stack", required=True, help="the stack's name (or its OCID)")
-    ap.add_argument("--every", type=int, default=300, help="seconds between attempts (default 300)")
+    ap.add_argument("--every", type=int, default=600, help="seconds between attempts (default 600)")
     ap.add_argument("--profile", default="DEFAULT")
     args = ap.parse_args()
 
