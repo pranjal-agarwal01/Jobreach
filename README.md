@@ -80,6 +80,13 @@ opens a match and presses "Prepare letter" (`pipeline/prepare.py`); a pasted pos
 straight away. Matching is code only, so it reruns whenever the profile, preferences or resumes
 change.
 
+## Your own agent
+
+Someone who runs their own agent to find posts can have it send them to `POST /intake/leads`
+with a personal key from Profile → Your agent. Each post becomes that person's private lead,
+exactly like a paste (prepared automatically when it is a strong or good match), and can never
+enter the shared pool. Format and limits: [docs/agent-intake.md](docs/agent-intake.md).
+
 ## The shared pool
 
 Openings are collected on the server, once, for everyone they may suit (`app/pool.py`,

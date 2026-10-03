@@ -18,7 +18,9 @@ class LeadError(RuntimeError):
     pass
 
 
-def process_lead(user_id: str, job_id: str, override: bool = False) -> dict:
+def process_lead(user_id: str, job_id: str, override: bool = False, prepare: str = "always") -> dict:
+    """prepare: "always" for a post the person pasted (pasting shows intent); "suits" for one
+    their agent found, prepared only when it is a strong or good match."""
     with user_tx(user_id) as conn:
         job = conn.execute("select id, extracted from jobs where id = %s and owner_user_id = %s",
                            (job_id, user_id)).fetchone()
@@ -31,7 +33,8 @@ def process_lead(user_id: str, job_id: str, override: bool = False) -> dict:
     if m.decision == "drop":
         _finish(user_id, job_id)
         return {"decision": "drop", "reasons": m.reasons, "match_id": match_id}
-    queue_prepare(user_id, match_id, override)
+    if prepare == "always" or override or m.bucket in ("strong", "good"):
+        queue_prepare(user_id, match_id, override)
     _finish(user_id, job_id)
     return {"decision": "keep", "match_id": match_id, "bucket": m.bucket, "score": m.score}
 

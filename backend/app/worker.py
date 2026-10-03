@@ -90,7 +90,8 @@ def handle(task) -> None:
         else:
             log.info("company %s: %s", p["company_id"], pool.scan_company(p["company_id"]))
     elif task["kind"] == "process_lead":
-        run_mod.process_lead(user_id, p["job_id"], override=p.get("override", False))
+        run_mod.process_lead(user_id, p["job_id"], override=p.get("override", False),
+                             prepare=p.get("prepare", "always"))
     elif task["kind"] == "prepare_application":
         prepare_mod.prepare(user_id, p["match_id"], override=p.get("override", False))
     elif task["kind"] == "match_user":

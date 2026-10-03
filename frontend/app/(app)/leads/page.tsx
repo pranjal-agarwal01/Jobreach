@@ -109,12 +109,14 @@ function LeadRow({ l, reload }: { l: Lead; reload: () => void }) {
               dropped ? l.reasons?.join(" ") :
               l.application_id ? "Letter ready" :
               writing ? "Suits you. Writing the letter and tailoring your resume" :
+              l.source === "agent" && l.bucket === "gaps" ? "Worth a look, with gaps. Open it to prepare a letter" :
               l.prepare_status === "failed" ? `Couldn't prepare the letter: ${l.prepare_error ?? "try again from its page"}` :
               (l.error ?? "Suits you")}
             {l.posted_age_hours !== null && !pending && <span>{`, post was ${hoursLabel(l.posted_age_hours)} old`}</span>}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {l.source === "agent" && <Badge>Found by your agent</Badge>}
           {l.bucket && !dropped && <Badge tone={BUCKET[l.bucket].tone}>{BUCKET[l.bucket].short}</Badge>}
           {l.verification === "flag" && <Badge tone="warn">Check company</Badge>}
           {l.overridden && <Badge>Your call</Badge>}

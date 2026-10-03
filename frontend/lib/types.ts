@@ -88,6 +88,7 @@ export interface Track {
 
 export interface Lead {
   id: Id; status: "queued" | "processing" | "done" | "failed"; error: string | null; source_ref: string | null;
+  source: "paste" | "agent"; found_by: string | null;
   first_seen_at: string; posted_age_hours: number | null; title: string | null; company_name: string | null;
   location: string | null; decision: "keep" | "drop" | "flag" | null; reasons: string[] | null;
   flags: string[] | null; overridden: boolean | null; rank: number | null; track_key: string | null;
@@ -95,6 +96,9 @@ export interface Lead {
   match_id: Id | null; score: number | null; bucket: Bucket | null; prepare_status: PrepareStatus | null;
   prepare_error: string | null;
 }
+
+/** A personal key the person's own agent uses to send the posts it finds (shown once when made). */
+export interface IntakeKey { id: Id; name: string; prefix: string; created_at: string; last_used_at: string | null }
 
 // ------------------------------------------------------------------ opportunities (matches)
 

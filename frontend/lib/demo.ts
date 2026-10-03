@@ -2,7 +2,7 @@
 // profile) and fictional companies on .example domains, so the signed-in UI can be reviewed
 // without an account. Development builds only; turned on at /demo and off from the banner.
 import type {
-  AppDetail, Application, Build, ContactCandidate, FactBank, Lead, Me, Opportunity, OpportunityDetail, ResumeLink,
+  AppDetail, Application, Build, ContactCandidate, FactBank, IntakeKey, Lead, Me, Opportunity, OpportunityDetail, ResumeLink,
   Review, Today, Track,
 } from "./types";
 
@@ -110,6 +110,9 @@ function draftFor(c: Co) {
   };
 }
 
+let intakeKeys: IntakeKey[] = [{ id: "k1", name: "LinkedIn agent", prefix: "jri_4kTq9xWm", created_at: ago(30),
+  last_used_at: ago(2) }];
+
 let links: Record<string, ResumeLink> = {
   ra5: { token: "demoQuill12", url: "http://localhost:8000/r/demoQuill12", opens: 3, last_opened_at: ago(30), created_at: ago(50) },
 };
@@ -147,18 +150,20 @@ const LEADS: Lead[] = [
     title: c.role, company_name: c.company, location: "Pune / Remote", decision: "keep", reasons: [], flags: c.calls,
     overridden: false, rank: 8, track_key: "sde", verification: c.calls.length ? "flag" : "pass",
     application_id: c.id, application_status: c.status, match_id: "m" + c.id, score: 81, bucket: "strong",
-    prepare_status: "done", prepare_error: null,
+    prepare_status: "done", prepare_error: null, source: c.id === "a2" ? "agent" : "paste",
+    found_by: c.id === "a2" ? "agent: posts: full stack intern, past 24 hours" : null,
   })),
   { id: "jx1", status: "done", error: null, source_ref: null, first_seen_at: ago(6), posted_age_hours: 4, title: "Python Developer Intern",
     company_name: "SkillSprint Academy", location: "Online", decision: "drop",
     reasons: ["Asks candidates to pay a registration fee", "Certificates offered as the main benefit"], flags: [],
     overridden: false, rank: null, track_key: null, verification: null, application_id: null, application_status: null,
-    match_id: "mx1", score: null, bucket: null, prepare_status: null, prepare_error: null },
+    match_id: "mx1", score: null, bucket: null, prepare_status: null, prepare_error: null, source: "paste", found_by: null },
   { id: "jx2", status: "done", error: null, source_ref: null, first_seen_at: ago(30), posted_age_hours: 50, title: "Backend Intern",
     company_name: "TalentBridge Staffing", location: "Hyderabad", decision: "drop",
     reasons: ["Posted by a recruiter, not the company. No intermediary post has ever converted."], flags: [],
     overridden: false, rank: null, track_key: null, verification: null, application_id: null, application_status: null,
-    match_id: "mx2", score: null, bucket: null, prepare_status: null, prepare_error: null },
+    match_id: "mx2", score: null, bucket: null, prepare_status: null, prepare_error: null, source: "agent",
+    found_by: "agent: posts: backend intern hyderabad, past 24 hours" },
 ];
 
 const FACTBANK: FactBank = {
@@ -378,6 +383,7 @@ function route(method: string, path: string, body: unknown): unknown {
     if (p.startsWith("/applications/")) return detail(p.split("/")[2]);
     if (p === "/leads") return LEADS;
     if (p === "/factbank") return FACTBANK;
+    if (p === "/intake/keys") return intakeKeys;
     if (p === "/tracks") return TRACKS;
     if (p === "/onboarding/review") return review();
     if (p === "/onboarding/status") {
@@ -410,6 +416,17 @@ function route(method: string, path: string, body: unknown): unknown {
     return { ok: true };
   }
   if (p === "/leads" && method === "POST") return { job_id: "jdemo", duplicate: false };
+  if (p === "/intake/keys" && method === "POST") {
+    const key = "jri_demoOnlyNotARealKey" + Math.random().toString(36).slice(2, 10);
+    const row = { id: "k" + (intakeKeys.length + 1), name: (body as { name: string }).name, prefix: key.slice(0, 12),
+      created_at: new Date().toISOString(), last_used_at: null };
+    intakeKeys = [row, ...intakeKeys];
+    return { ...row, key };
+  }
+  if (p.startsWith("/intake/keys/") && method === "DELETE") {
+    intakeKeys = intakeKeys.filter((k) => k.id !== p.split("/")[3]);
+    return { ok: true };
+  }
   if (p.startsWith("/opportunities/") && p.endsWith("/prepare")) {
     const st = oppState[p.split("/")[2]];
     if (st && !st.app) { st.prepare = "running"; st.startedAt = Date.now(); }

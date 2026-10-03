@@ -162,14 +162,15 @@ def read(raw_text: str, source_ref: Optional[str], ctx: llm.CallContext, *, sour
 
 
 def store(job_id: str, r: Read) -> None:
-    """Write the reading. A board's own posting date is kept when the text states no age."""
+    """Write the reading. A posting date already known (from a board's feed, or from when an
+    agent saw the post) is kept; otherwise the post's own age label sets it."""
     cols = normalise(r.ex)
     names = list(cols)
     with system_tx() as conn:
         conn.execute(
-            """update jobs set extracted = %s, posted_age_hours = coalesce(%s, posted_age_hours),
-                   posted_at = case when %s::numeric is null then posted_at
-                                    else first_seen_at - make_interval(secs => %s::numeric * 3600) end,
+            """update jobs set extracted = %s, posted_age_hours = coalesce(posted_age_hours, %s),
+                   posted_at = coalesce(posted_at, case when %s::numeric is null then null
+                                    else first_seen_at - make_interval(secs => %s::numeric * 3600) end),
                    company_id = %s, screen = %s, last_seen_at = now(), {}
                where id = %s""".format(", ".join("{} = %s".format(n) for n in names)),
             [Jsonb(r.ex.model_dump()), r.age_hours, r.age_hours, r.age_hours,
