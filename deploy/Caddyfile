@@ -1,7 +1,7 @@
-# One address for everything: the web app, and the API under /api.
-# Caddy obtains the HTTPS certificate for SITE_DOMAIN on first start (port 80 and 443 must be
-# open, and the domain's A record must point at this server).
-{$SITE_DOMAIN} {
+# One address for everything: the web app, and the API under /api. Installed by setup.sh as
+# /etc/caddy/Caddyfile, with __DOMAIN__ replaced by SITE_DOMAIN. Caddy obtains the HTTPS
+# certificate on first start (ports 80 and 443 open, and the domain's A record pointing here).
+__DOMAIN__ {
 	encode zstd gzip
 
 	header {
@@ -12,15 +12,15 @@
 		-Server
 	}
 
-	# The API: /api/health -> api:8000/health. Uploads (CVs) can be a few MB.
+	# The API: /api/health -> 127.0.0.1:8000/health. Uploads (CVs) can be a few MB.
 	handle_path /api/* {
 		request_body {
 			max_size 25MB
 		}
-		reverse_proxy api:8000
+		reverse_proxy 127.0.0.1:8000
 	}
 
 	handle {
-		reverse_proxy web:3000
+		reverse_proxy 127.0.0.1:3000
 	}
 }

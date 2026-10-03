@@ -1,8 +1,8 @@
 # Deploying Jobreach (free): one Oracle Cloud server
 
-Everything runs on one always-free Oracle Cloud server: the web app, the API, the worker, and
-Caddy in front, which gets the HTTPS certificate by itself. The database and sign-in stay on
-Supabase's free plan.
+Everything runs on one always-free Oracle Cloud server, without Docker: the web app, the API and
+the worker are three ordinary services (systemd), and Caddy in front gets the HTTPS certificate by
+itself. The database and sign-in stay on Supabase's free plan.
 
     https://jobreach.pranjalagarwal.me/        the web app
     https://jobreach.pranjalagarwal.me/api/... the API
@@ -56,9 +56,11 @@ bash deploy/ship.sh <server IP> <path to the downloaded private key>
 
 `make_env.py` writes `deploy/.env` (git-ignored) from `backend/.env` and `frontend/.env.local`
 with the deployed addresses. `ship.sh` copies the last commit and that file to the server, then
-runs `deploy/setup.sh` there: Docker is installed the first time, the web ports are opened in the
-server's own firewall, and everything is built and started. The first build takes 5 to 10
-minutes. Updating later is the same `ship.sh` command.
+runs `deploy/setup.sh` there. The first time it installs Python's tools, LibreOffice, the Carlito
+font and Caddy from Ubuntu, and Node.js from nodejs.org (its checksum checked); every time it
+installs the Python packages, builds the web app, restarts the three services and opens the web
+ports in the server's own firewall. The first run takes 5 to 10 minutes. Updating later is the
+same `ship.sh` command.
 
 Then stop the API and the worker on your PC: the server's now do the work, and the database's
 connection pool is shared.
@@ -67,11 +69,14 @@ connection pool is shared.
 
 ```bash
 ssh -i <key> ubuntu@<server IP>
-cd ~/jobreach/src/deploy
-sudo docker compose ps                 # what is running
-sudo docker compose logs -f worker     # the worker's log (api, web, caddy likewise)
-sudo docker compose restart worker
+systemctl status jobreach-api jobreach-worker jobreach-web caddy   # what is running
+journalctl -u jobreach-worker -f                                    # the worker's log, live
+sudo systemctl restart jobreach-worker
 ```
 
-Ubuntu installs security updates by itself. Containers restart on their own after a crash or a
-reboot.
+On the server: the code in `~/jobreach/src`, the settings in `~/jobreach/.env`, the Python
+packages in `~/jobreach/venv`. Ubuntu installs security updates by itself, and the services
+restart on their own after a crash or a reboot.
+
+(`backend/Dockerfile` and `render.yaml` remain for hosting on Render instead; this server setup
+doesn't use them.)

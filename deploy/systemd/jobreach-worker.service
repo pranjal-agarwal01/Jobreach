@@ -1,0 +1,21 @@
+[Unit]
+Description=Jobreach worker (letters, resumes, matching, the shared pool)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+WorkingDirectory=__BASE__/src/backend
+EnvironmentFile=__BASE__/.env
+Environment=HOME=__BASE__/home PYTHONUNBUFFERED=1
+ExecStart=__BASE__/venv/bin/python -m app.worker
+Restart=always
+RestartSec=5
+# A task stopped half-way is picked up again by the next worker after 15 minutes.
+TimeoutStopSec=30
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
