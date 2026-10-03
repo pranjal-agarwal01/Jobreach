@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { isDemo, setDemo } from "@/lib/demo";
 import { supabase } from "@/lib/supabase";
 import type { Me } from "@/lib/types";
@@ -40,14 +40,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const path = usePathname();
   const [me, setMe] = useState<Me | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; signIn: boolean } | null>(null);
   const [demo, setDemoState] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       setMe(await api.get<Me>("/me"));
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError({ message: e instanceof Error ? e.message : String(e), signIn: e instanceof ApiError && e.status === 401 });
     }
   }, []);
 
@@ -73,9 +74,25 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-2 p-8 text-sm">
         <Brand />
-        <p className="mt-6 text-base font-semibold">Jobreach can&apos;t reach its server.</p>
-        <p className="text-muted">{error}</p>
-        <p className="text-muted">Check that the API is running on port 8000, then reload.</p>
+        {error.signIn ? (
+          <>
+            <p className="mt-6 text-base font-semibold">Your sign-in wasn&apos;t accepted.</p>
+            <p className="text-muted">{error.message}</p>
+            <p className="text-muted">Try again, or sign out and sign in once more.</p>
+          </>
+        ) : (
+          <>
+            <p className="mt-6 text-base font-semibold">Jobreach can&apos;t reach its server.</p>
+            <p className="text-muted">{error.message}</p>
+            <p className="text-muted">Check that the API is running, then try again.</p>
+          </>
+        )}
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={refresh}
+            className="rounded-[10px] bg-accent px-4 py-2 font-semibold text-white hover:bg-accent-strong">Try again</button>
+          <button type="button" onClick={() => supabase.auth.signOut()}
+            className="rounded-[10px] border border-border-strong px-4 py-2 font-semibold hover:bg-sunken">Sign out</button>
+        </div>
       </div>
     );
   }

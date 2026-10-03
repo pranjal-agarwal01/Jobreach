@@ -29,8 +29,10 @@ def _jwks_client() -> jwt.PyJWKClient:
 def verify_token(token: str) -> User:
     try:
         key = _jwks_client().get_signing_key_from_jwt(token)
+        # leeway: a server whose clock runs a few seconds behind Supabase's would otherwise
+        # reject a token issued a moment ago as "not yet valid".
         claims = jwt.decode(token, key.key, algorithms=["ES256", "RS256"], audience="authenticated",
-                            issuer=settings.jwt_issuer)
+                            issuer=settings.jwt_issuer, leeway=60)
     except jwt.PyJWTError as e:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token: {}".format(e)) from e
     if claims.get("role") != "authenticated" or not claims.get("sub"):
