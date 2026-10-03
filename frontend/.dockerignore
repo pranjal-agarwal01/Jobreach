@@ -1,0 +1,7 @@
+# Built inside the image, or secret: never sent to the build.
+node_modules/
+.next/
+out/
+.env
+.env.*
+npm-debug.log*

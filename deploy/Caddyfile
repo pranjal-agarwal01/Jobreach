@@ -1,0 +1,26 @@
+# One address for everything: the web app, and the API under /api.
+# Caddy obtains the HTTPS certificate for SITE_DOMAIN on first start (port 80 and 443 must be
+# open, and the domain's A record must point at this server).
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	# The API: /api/health -> api:8000/health. Uploads (CVs) can be a few MB.
+	handle_path /api/* {
+		request_body {
+			max_size 25MB
+		}
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

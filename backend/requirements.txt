@@ -16,3 +16,5 @@ httpx==0.28.1
 dnspython==2.7.0
 beautifulsoup4==4.12.3
 python-dotenv==1.0.1
+# Time zones for Send for me (zoneinfo), also where the system has none (slim images, Windows)
+tzdata>=2024.1

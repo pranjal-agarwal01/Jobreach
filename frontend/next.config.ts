@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
+  // A self-contained server in .next/standalone, for the deploy image (frontend/Dockerfile).
+  output: "standalone",
 };
 
 export default nextConfig;

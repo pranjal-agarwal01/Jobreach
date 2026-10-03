@@ -1,0 +1,7 @@
+# The server is Linux: its scripts and build files keep LF line endings, whatever this PC uses
+# (a CR at a line's end breaks bash and Dockerfile line continuations).
+*.sh          text eol=lf
+Dockerfile    text eol=lf
+Caddyfile     text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
