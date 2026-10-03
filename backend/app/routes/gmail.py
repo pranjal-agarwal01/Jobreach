@@ -1,14 +1,15 @@
 """Connecting Gmail, and drafting a letter there by hand (app/gmail.py does the work)."""
 from __future__ import annotations
 
+import re
 from typing import Optional
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from .. import gmail
+from .. import gmail, send
 from ..auth import User, current_user
 from ..config import settings
 from ..db import audit, user_tx
@@ -21,7 +22,8 @@ def status(user: User = Depends(current_user)):
     c = gmail.connection(user.id) if gmail.configured() else None
     return {"available": gmail.configured(), "connected": bool(c and c["status"] == "active"),
             "expired": bool(c and c["status"] == "expired"), "email": c["email"] if c else None,
-            "connected_at": c["connected_at"] if c else None, "unverified": not settings.google_app_verified}
+            "connected_at": c["connected_at"] if c else None, "unverified": not settings.google_app_verified,
+            "send": send.status(user.id) if gmail.configured() else None}
 
 
 class ConnectIn(BaseModel):
@@ -62,6 +64,7 @@ def callback(code: Optional[str] = None, state: Optional[str] = None, error: Opt
 
 @router.delete("/gmail")
 def disconnect(user: User = Depends(current_user)):
+    send.unschedule_all(user.id)
     gmail.disconnect(user.id)
     audit(user.id, "gmail_disconnected", {})
     return {"ok": True}
@@ -82,3 +85,54 @@ def draft_now(app_id: str, user: User = Depends(current_user)):
         conn.execute("update drafts set gmail_error = null where id = %s", (d["id"],))
         gmail.queue_draft(conn, user.id, d["id"])
     return {"queued": True}
+
+
+HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+class SendSettings(BaseModel):
+    enabled: bool
+    window_start: str = "14:00"
+    window_end: str = "17:00"
+    timezone: str = "Asia/Kolkata"
+    daily_cap: int = Field(10, ge=1, le=20)
+    grace_minutes: int = Field(120, ge=30, le=1440)
+
+
+@router.put("/gmail/send-for-me")
+def send_for_me(body: SendSettings, user: User = Depends(current_user)):
+    """Turn Send for me on or off, or change its window. Turning it on is the person's consent for
+    Jobreach to send their letters from their Gmail; it is recorded (audit and enabled_at)."""
+    if not (HHMM.match(body.window_start) and HHMM.match(body.window_end)) or body.window_start == body.window_end:
+        raise HTTPException(422, "Choose a window with a start and an end, like 14:00 to 17:00")
+    if send.zone(body.timezone).key != body.timezone:
+        raise HTTPException(422, "Unknown time zone")
+    c = gmail.connection(user.id) if gmail.configured() else None
+    if body.enabled and not (c and c["status"] == "active"):
+        raise HTTPException(400, "Connect Gmail first")
+    with user_tx(user.id) as conn:
+        was = conn.execute("select auto_send from preferences").fetchone()
+        conn.execute(
+            """update preferences set auto_send = %s, auto_send_window_start = %s, auto_send_window_end = %s,
+                   auto_send_timezone = %s, auto_send_daily_cap = %s, auto_send_grace_minutes = %s,
+                   auto_send_paused_reason = null,
+                   auto_send_enabled_at = case when %s and not auto_send then now() else auto_send_enabled_at end,
+                   updated_at = now()""",
+            (body.enabled, body.window_start, body.window_end, body.timezone, body.daily_cap, body.grace_minutes,
+             body.enabled))
+    send.unschedule_all(user.id)                       # the old moments may not fit the new window
+    lined_up = send.schedule_ready(user.id) if body.enabled else 0
+    action = ("send_for_me_on" if body.enabled and not (was and was["auto_send"]) else
+              "send_for_me_off" if not body.enabled else "send_for_me_changed")
+    audit(user.id, action, {"window": [body.window_start, body.window_end], "tz": body.timezone,
+                            "cap": body.daily_cap, "grace": body.grace_minutes, "lined_up": lined_up})
+    return send.status(user.id)
+
+
+@router.post("/applications/{app_id}/send-cancel")
+def cancel_send(app_id: str, user: User = Depends(current_user)):
+    """"Don't send this one": the letter stays in Gmail drafts for the person to send, or not."""
+    if not send.cancel(user.id, app_id):
+        raise HTTPException(409, "This letter isn't lined up to be sent")
+    audit(user.id, "send_for_me_cancelled", {"application_id": app_id})
+    return {"ok": True}

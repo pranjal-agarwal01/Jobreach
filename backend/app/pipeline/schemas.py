@@ -76,6 +76,21 @@ class Extracted(BaseModel):
     shared_by_third_party: bool = False
 
 
+# ------------------------------------------------------------------ discovery (app/discover.py)
+
+class FundedCompany(BaseModel):
+    name: str
+    website: Optional[str] = None          # only a link the article itself gives
+    what_it_does: str
+    round: Optional[str] = None            # "Series A", "seed"
+    amount: Optional[str] = None           # as written: "$5 Mn", "Rs 100 Cr"
+    city: Optional[str] = None
+
+
+class FundingNews(BaseModel):
+    companies: list[FundedCompany] = Field(default_factory=list)
+
+
 # ------------------------------------------------------------------ S4 company summary
 
 class CompanySummary(BaseModel):

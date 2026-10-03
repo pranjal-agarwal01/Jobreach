@@ -14,7 +14,7 @@ const CAPTIONS = [
   "Riya, a founder, posts an opening. It is two hours old.",
   "Jobreach makes a one-page resume for this job from Rohan's own CV.",
   "It writes the letter. Every claim in it is Rohan's.",
-  "Rohan reads it and presses Send. Jobreach never does.",
+  "Rohan reads it and presses Send.",
 ];
 
 const hidden = { opacity: 0 };

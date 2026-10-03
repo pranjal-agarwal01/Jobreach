@@ -153,6 +153,8 @@ export interface Application {
   notes: string | null; created_at: string; user_marked_sent_at: string | null; lint_ok: boolean | null;
   domain: string | null; verification: string | null; business_summary: string | null; source_ref: string | null;
   source: string; resume_id: Id | null; resume_filename: string | null; in_gmail: boolean | null;
+  /** Send for me: when the letter goes, and when it went. */
+  send_at: string | null; sent_by_jobreach_at: string | null;
 }
 export interface ResumeLink { token: string; url: string; opens: number; last_opened_at: string | null; created_at: string }
 export interface LintCheck { check: string; ok: boolean; detail: string }
@@ -162,6 +164,8 @@ export interface Draft {
   /** Set once the letter is a draft in the person's own Gmail. */
   gmail_draft_id: string | null; gmail_message_id: string | null; gmail_drafted_at: string | null;
   gmail_error: string | null; gmail_link: string | null;
+  /** Send for me: the moment it goes, a "don't send this one", when it went, and why it didn't. */
+  send_at: string | null; send_cancelled_at: string | null; gmail_sent_at: string | null; send_error: string | null;
 }
 
 /** The person's Gmail connection: letters are created as drafts there. */
@@ -169,6 +173,17 @@ export interface GmailStatus {
   available: boolean; connected: boolean; expired: boolean; email: string | null; connected_at: string | null;
   /** Google still shows "Google hasn't verified this app" before its consent screen. */
   unverified: boolean;
+  send: SendForMe | null;
+}
+
+/** Send for me: an opt-in. Letters that passed every check go from the person's Gmail, at random
+ *  moments inside their hours, at most daily_cap a day, never sooner than grace_minutes after they
+ *  reach their drafts. */
+export interface SendForMe {
+  enabled: boolean; window_start: string; window_end: string; timezone: string; daily_cap: number;
+  grace_minutes: number; enabled_at: string | null; paused_reason: string | null;
+  upcoming: { application_id: Id; company: string | null; role_title: string | null; send_at: string }[];
+  sent_last_24h: number;
 }
 export interface EventRow { id: Id; type: string; occurred_at: string; deadline_at: string | null; summary: string | null }
 export interface AppDetail {

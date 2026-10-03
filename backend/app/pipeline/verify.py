@@ -176,17 +176,39 @@ def _cached(domain: str) -> Optional[dict]:
 
 
 def _check(name: str, domain: str, ex: Extracted, ctx: llm.CallContext) -> dict:
+    row = _assess(domain, "Company named in the post: {}\nRole in the post: {}".format(ex.company_name, ex.title),
+                  ex.poster_type in ("founder", "employee") and bool(ex.poster_name),
+                  llm.CallContext(job_id=ctx.job_id))
+    row.pop("site_matches")
+    cid = _upsert(name, domain, row)
+    return {"id": cid, "verification": row["verification"], "flags": row["flags"]}
+
+
+def check_discovered(name: str, domain: str, about: str, homepage: Optional[str] = None) -> Optional[dict]:
+    """A company found in startup news or a startup directory, at a website that is its own or a
+    guess. Stored only when the homepage is that company's and it is not a staffing, training or
+    placement business; None otherwise, and nothing is kept."""
+    context = ("Company named in startup news or a startup directory: {}\nWhat the source says it does: {}\n"
+               "Here matches_post means: this homepage is that company's own site.").format(name, about)
+    row = _assess(domain, context, False, llm.CallContext(), homepage=homepage)
+    if not row.pop("site_matches") or row["verification"] == "fail":
+        return None
+    cid = _upsert(name, domain, row)
+    return {"id": cid, "verification": row["verification"], "flags": row["flags"]}
+
+
+def _assess(domain: str, context: str, named_poster: bool, ctx: llm.CallContext,
+            homepage: Optional[str] = None) -> dict:
+    """DNS, mail, the homepage and a model summary of it: the companies row for this domain, plus
+    site_matches (the homepage plausibly fits the context and is not an intermediary)."""
     dns_ok = bool(HOST_RE.match(domain)) and bool(public_ips(domain))
     mx_ok = has_mx(domain) if dns_ok or HOST_RE.match(domain) else False
-    text = fetch_homepage(domain) if dns_ok else None
+    text = homepage or (fetch_homepage(domain) if dns_ok else None)
     summary: Optional[CompanySummary] = None
     if text:
-        volatile = "Company named in the post: {}\nRole in the post: {}\n\n<homepage>\n{}\n</homepage>".format(
-            ex.company_name, ex.title, text)
+        volatile = "{}\n\n<homepage>\n{}\n</homepage>".format(context, text)
         summary = llm.structured("s4_company", CompanySummary, stable=[prompts.COMPANY],
-                                 volatile=volatile, effort="low", max_tokens=1500,
-                                 ctx=llm.CallContext(job_id=ctx.job_id))
-    named_poster = ex.poster_type in ("founder", "employee") and bool(ex.poster_name)
+                                 volatile=volatile, effort="low", max_tokens=1500, ctx=ctx)
 
     flags: list[str] = []
     if summary and (summary.is_intermediary or summary.business_type in ("staffing", "msp", "training", "placement")):
@@ -212,16 +234,15 @@ def _check(name: str, domain: str, ex: Extracted, ctx: llm.CallContext) -> dict:
         elif summary and not summary.matches_post:
             flags.append("Website does not obviously match the role: {}".format(summary.summary))
 
-    row = {
+    return {
         "dns_ok": dns_ok, "mx_ok": mx_ok, "homepage_ok": bool(text),
         "business_summary": summary.summary if summary else None,
         "business_type": summary.business_type if summary else None,
         "is_intermediary": summary.is_intermediary if summary else None,
         "size_band": summary.size_hint if summary else None,
         "verification": result, "flags": flags,
+        "site_matches": bool(summary and summary.matches_post and not summary.is_intermediary),
     }
-    cid = _upsert(name, domain, row)
-    return {"id": cid, "verification": result, "flags": flags}
 
 
 def _upsert(name: str, domain: Optional[str], row: dict) -> str:

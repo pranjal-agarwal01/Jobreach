@@ -30,6 +30,24 @@ function setGmailConnected(on: boolean) {
   try { if (on) window.localStorage.setItem(GMAIL_KEY, "1"); else window.localStorage.removeItem(GMAIL_KEY); } catch { /* private window */ }
 }
 const DEMO_GMAIL = "aarav.mehta@example.com";
+
+// A pretend Send for me, kept in the browser like the Gmail connection.
+const SEND_KEY = "jobreach-demo-send";
+interface DemoSend {
+  enabled: boolean; window_start: string; window_end: string; timezone: string; daily_cap: number; grace_minutes: number;
+  enabled_at: string | null; cancelled: string[];
+}
+const SEND_DEFAULT: DemoSend = { enabled: false, window_start: "14:00", window_end: "17:00", timezone: "Asia/Kolkata",
+  daily_cap: 10, grace_minutes: 120, enabled_at: null, cancelled: [] };
+function sendState(): DemoSend {
+  try {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem(SEND_KEY) : null;
+    return raw ? { ...SEND_DEFAULT, ...JSON.parse(raw) } : SEND_DEFAULT;
+  } catch { return SEND_DEFAULT; }
+}
+function saveSend(s: DemoSend) {
+  try { window.localStorage.setItem(SEND_KEY, JSON.stringify(s)); } catch { /* private window */ }
+}
 const ahead = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
 
 const SIGNATURE = `<p>Best regards,<br>Aarav Mehta<br>+91 90000 00001 | aarav.mehta@example.com</p>`;
@@ -95,7 +113,35 @@ function application(c: Co): Application {
     domain: c.domain, verification: c.calls.length ? "flag" : "pass", business_summary: c.summary,
     source_ref: null, source: "paste", resume_id: "r" + c.id, resume_filename: "resume_Aarav_Mehta.pdf",
     in_gmail: gmailConnected() && c.route === "email" && c.status === "drafted",
+    send_at: demoSendAt(c), sent_by_jobreach_at: null,
   };
+}
+
+/** When the demo's Send for me would send this letter: spread across today's window, or tomorrow's
+ *  when today's has passed. */
+function demoSendAt(c: Co): string | null {
+  const s = sendState();
+  if (!s.enabled || !gmailConnected() || c.status !== "drafted" || c.route !== "email" || s.cancelled.includes(c.id)) return null;
+  const lined = COS.filter((x) => x.status === "drafted" && x.route === "email" && !s.cancelled.includes(x.id));
+  const i = lined.indexOf(c);
+  if (i < 0 || i >= s.daily_cap) return null;
+  const [sh, sm] = s.window_start.split(":").map(Number);
+  const [eh, em] = s.window_end.split(":").map(Number);
+  const span = Math.max(30, ((eh * 60 + em) - (sh * 60 + sm) + 1440) % 1440 || 1440);
+  const t = new Date();
+  t.setHours(sh, sm, 0, 0);
+  t.setMinutes(t.getMinutes() + Math.round((span * (i + 0.6)) / (lined.length + 0.4)));
+  if (t.getTime() < Date.now() + s.grace_minutes * 60_000) t.setDate(t.getDate() + 1);
+  return t.toISOString();
+}
+
+function sendStatus() {
+  const { cancelled, ...s } = sendState();
+  void cancelled;
+  const upcoming = COS.map((c) => ({ application_id: c.id, company: c.company, role_title: c.role, send_at: demoSendAt(c) }))
+    .filter((u): u is typeof u & { send_at: string } => u.send_at !== null)
+    .sort((a, b) => a.send_at.localeCompare(b.send_at));
+  return { ...s, paused_reason: null, upcoming, sent_last_24h: 0 };
 }
 
 function draftFor(c: Co) {
@@ -123,6 +169,8 @@ function draftFor(c: Co) {
       ? { gmail_draft_id: "r-demo-" + c.id, gmail_message_id: "demo" + c.id, gmail_drafted_at: ago(0.2), gmail_error: null,
           gmail_link: "https://mail.google.com/mail/u/0/#drafts" }
       : { gmail_draft_id: null, gmail_message_id: null, gmail_drafted_at: null, gmail_error: null, gmail_link: null }),
+    send_at: demoSendAt(c), send_cancelled_at: sendState().cancelled.includes(c.id) ? ago(0.05) : null,
+    gmail_sent_at: null, send_error: null,
   };
 }
 
@@ -401,7 +449,8 @@ function route(method: string, path: string, body: unknown): unknown {
     if (p === "/factbank") return FACTBANK;
     if (p === "/intake/keys") return intakeKeys;
     if (p === "/gmail") return { available: true, connected: gmailConnected(), expired: false,
-      email: gmailConnected() ? DEMO_GMAIL : null, connected_at: gmailConnected() ? ago(0.1) : null, unverified: true };
+      email: gmailConnected() ? DEMO_GMAIL : null, connected_at: gmailConnected() ? ago(0.1) : null, unverified: true,
+      send: sendStatus() };
     if (p === "/tracks") return TRACKS;
     if (p === "/onboarding/review") return review();
     if (p === "/onboarding/status") {
@@ -440,6 +489,18 @@ function route(method: string, path: string, body: unknown): unknown {
     return { url: back + "?gmail=connected" };
   }
   if (p === "/gmail" && method === "DELETE") { setGmailConnected(false); return { ok: true }; }
+  if (p === "/gmail/send-for-me" && method === "PUT") {
+    const now = sendState();
+    const b = body as Partial<DemoSend>;
+    saveSend({ ...now, ...b, enabled_at: b.enabled && !now.enabled ? new Date().toISOString() : now.enabled_at,
+      cancelled: b.enabled ? now.cancelled : [] });
+    return sendStatus();
+  }
+  if (p.endsWith("/send-cancel")) {
+    const now = sendState();
+    saveSend({ ...now, cancelled: [...now.cancelled, p.split("/")[2]] });
+    return { ok: true };
+  }
   if (p.endsWith("/gmail-draft")) return { queued: true };
   if (p === "/intake/keys" && method === "POST") {
     const key = "jri_demoOnlyNotARealKey" + Math.random().toString(36).slice(2, 10);

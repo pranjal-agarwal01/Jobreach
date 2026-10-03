@@ -28,7 +28,7 @@ DEFAULT_MODELS = {
     "anthropic": ("claude-sonnet-5-5", ""),
     "foundry": ("claude-sonnet-5-5", ""),
 }
-FAST_STEPS = {"s1_extract", "s4_company"}
+FAST_STEPS = {"s1_extract", "s4_company", "discover_news"}
 
 
 @dataclass(frozen=True)
@@ -70,6 +70,8 @@ class Settings:
     # only while some user needs a kind of role, so an empty pool costs nothing.
     pool_enabled: bool = os.environ.get("POOL_ENABLED", "1").strip() not in ("0", "false", "no")
     pool_tick_minutes: int = int(os.environ.get("POOL_TICK_MINUTES", "15"))
+    # Discovery (discover.py): new companies from Y Combinator's directory and funding news.
+    discovery_enabled: bool = os.environ.get("DISCOVERY_ENABLED", "1").strip() not in ("0", "false", "no")
     # Strong, fresh matches prepared before the person opens them, per person per day.
     prewarm_per_day: int = int(os.environ.get("PREWARM_PER_DAY", "3"))
     # Bump whenever the consent notice changes (2026-10-01: model processor is Azure OpenAI).

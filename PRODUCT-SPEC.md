@@ -219,8 +219,11 @@ the resume and email built per lead.
 
 ### 3.4 Non-negotiable principles
 
-1. **The user presses Send and Submit. Always.** The product never sends email and never submits
-   an application.
+1. **Nothing goes out unless the user says so.** The user presses Send and Submit. The one
+   exception is Send for me, an opt-in (changed 2026-10-03, at the founder's request): letters that
+   passed every check are sent from the user's own Gmail at random moments inside a window they
+   chose, at most 20 a day, no sooner than a waiting period during which they can edit or cancel
+   each one. It pauses itself on bounces. The product never submits an application.
 2. **Selection, never invention.** Every resume line and every claim in an email traces to the
    user's own record: a line found in the documents they gave (code checks each line's numbers,
    tools and wording against those documents), or a line they wrote or restored themselves. A
@@ -407,7 +410,8 @@ See section 7 for the rules. Output: subject, HTML body, and which facts it used
   compose link (plain text, no attachment; the user attaches). Note that a prefilled compose URL
   puts the body in browser history.
 - **Phase 2:** create a real Gmail draft through the Gmail API with the resume attached (section
-  11.2). Read the draft back and re-run the lint before showing it as ready. **Never send.**
+  11.2). Read the draft back and re-run the lint before showing it as ready. **Never send**,
+  except through the Send for me opt-in (principle 1).
 
 ### 5.10 S10 Record
 

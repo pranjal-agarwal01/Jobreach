@@ -51,6 +51,8 @@ BOARD_RETRY_HOURS = 1
 HN_POLL_HOURS = 12
 HN_VALID_DAYS = 35               # a month's thread, plus a few days
 COMPANY_SCAN_DAYS = 7
+DISCOVER_YC_HOURS = 24
+DISCOVER_NEWS_HOURS = 6
 COMPANIES_PER_TICK = 10
 NEW_PER_TASK = 5                 # openings read per task (each about 30s), so a person's own task never waits long
 UNSEEN_EXPIRE_DAYS = 30
@@ -428,6 +430,13 @@ def tick() -> dict:
         if hn_recent is None:
             enqueue(conn, None, "poll_hn", {})
             out["hn"] = True
+        # New companies (discover.py): the directory once a day, funding news every few hours.
+        if settings.discovery_enabled:
+            for kind, hours in (("discover_yc", DISCOVER_YC_HOURS), ("discover_news", DISCOVER_NEWS_HOURS)):
+                if conn.execute("select 1 from task_queue where kind = %s and created_at > now() - make_interval(hours => %s)"
+                                " limit 1", (kind, hours)).fetchone() is None:
+                    enqueue(conn, None, kind, {})
+                    out[kind] = True
         companies = [r["id"] for r in conn.execute(
             """select c.id::text from companies c where c.domain is not null and c.verification in ('pass', 'flag')
                  and (c.careers_checked_at is null or c.careers_checked_at < now() - make_interval(days => %s))

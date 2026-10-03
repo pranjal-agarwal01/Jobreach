@@ -2,7 +2,7 @@ import { IconChevronDown } from "@/components/icons";
 
 const QA: [string, string][] = [
   ["Does Jobreach send emails for me?",
-    "No. It prepares the letter and the resume, then you send from your own inbox. Copy the letter, or open it in Gmail with one click and attach the PDF. Nothing ever goes out without you pressing Send."],
+    "Only if you ask it to. By default each letter waits in your Gmail drafts with the resume attached, and you press Send. If you turn on Send for me, letters that passed every check go from your own Gmail, a few a day inside the hours you choose, and you can stop any one before it goes."],
   ["Will it put things on my resume that I haven't done?",
     "No. Every line comes from your CV, your project notes or your GitHub. Jobreach reorders and trims your own lines for each job. If a claim or a number can't be found in what you gave it, it is left out."],
   ["Where do the openings come from?",

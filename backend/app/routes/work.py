@@ -283,6 +283,9 @@ APP_SELECT = """
          (select d.lint_ok from drafts d where d.application_id = a.id order by d.version desc limit 1) as lint_ok,
          (select d.gmail_draft_id is not null from drafts d where d.application_id = a.id
           order by d.version desc limit 1) as in_gmail,
+         (select d.send_at from drafts d where d.application_id = a.id order by d.version desc limit 1) as send_at,
+         (select d.gmail_sent_at from drafts d where d.application_id = a.id
+          order by d.version desc limit 1) as sent_by_jobreach_at,
          rs.resume_id, rs.resume_filename
   from applications a
   join jobs j on j.id = a.job_id

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { GmailBanner } from "@/components/GmailConnect";
+import { GmailBanner, fmtSendAt } from "@/components/GmailConnect";
 import OpportunityCard, { BucketHeading } from "@/components/OpportunityCard";
 import { IconAlert, IconChevronRight, IconClock, IconMail, IconPaste } from "@/components/icons";
 import { Badge, Button, Empty, ErrorNote, Freshness, Monogram, PageHeader, fmtWhen, hoursLabel } from "@/components/ui";
@@ -75,7 +75,9 @@ export default function TodayPage() {
                         <Freshness hours={a.age_at_draft_hours} />
                         <span className="text-xs text-muted">{a.route === "email" ? `to ${a.apply_to}` : "apply on their portal"}</span>
                       </div>
-                      {a.in_gmail && <span className="hidden sm:inline-flex"><Badge tone="ok"><IconMail size={13} /> In Gmail</Badge></span>}
+                      {a.send_at
+                        ? <span className="hidden sm:inline-flex"><Badge tone="accent"><IconClock size={13} /> Sends {fmtSendAt(a.send_at)}</Badge></span>
+                        : a.in_gmail && <span className="hidden sm:inline-flex"><Badge tone="ok"><IconMail size={13} /> In Gmail</Badge></span>}
                       {a.status === "needs_review" && <span className="hidden sm:inline-flex"><Badge tone="warn"><IconAlert size={13} /> Needs a look</Badge></span>}
                       <IconChevronRight size={18} className="shrink-0 text-muted transition-transform group-hover:translate-x-0.5" />
                     </Link>
@@ -92,7 +94,7 @@ export default function TodayPage() {
           <section aria-labelledby="openings" className="flex flex-col gap-8">
             <div className="-mb-4 flex flex-wrap items-baseline justify-between gap-2">
               <h2 id="openings" className="text-[15px] font-semibold">Openings for you</h2>
-              {openings > 0 && <p className="text-sm text-muted">Scored against your own work. Nothing is sent until you press Send.</p>}
+              {openings > 0 && <p className="text-sm text-muted">Scored against your own work. Nothing is sent unless you say so.</p>}
             </div>
             {openings === 0 ? (
               <div className="rounded-2xl border border-dashed border-border-strong">

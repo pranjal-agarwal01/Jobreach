@@ -59,7 +59,7 @@ function LoginForm() {
           </h1>
           <ul className="mt-6 flex flex-col gap-2.5 text-[16px] text-text-2">
             {["Every line comes from your own CV and projects", "A one-page resume made for each opening",
-              "You read it and press Send. Always."].map((t) => (
+              "Nothing goes out unless you say so"].map((t) => (
               <li key={t} className="flex items-center gap-2.5"><IconCheck size={18} className="text-accent" />{t}</li>
             ))}
           </ul>
@@ -76,7 +76,7 @@ function LoginForm() {
             </div>
           </article>
         </div>
-        <p className="text-sm text-muted">Jobreach never sends email, submits applications, or logs into LinkedIn for you.</p>
+        <p className="text-sm text-muted">Jobreach never submits applications or logs into LinkedIn for you, and sends email only if you turn on Send for me.</p>
       </section>
 
       <section className="flex flex-col px-5 py-8 sm:px-10">

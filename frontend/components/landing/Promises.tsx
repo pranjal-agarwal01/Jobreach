@@ -22,9 +22,10 @@ export default function Promises() {
           <Cell className="relative bg-inland shadow-paper ring-1 ring-inland-edge md:col-span-3 md:row-span-2" delay={0}>
             <div className="airmail-edge absolute inset-x-0 top-0 h-2" />
             <div className="flex h-full flex-col p-7 pt-9 sm:p-9 sm:pt-11">
-              <h3 className="text-[28px] font-bold tracking-[-0.025em] sm:text-[34px]">You press Send. Always.</h3>
+              <h3 className="text-[28px] font-bold tracking-[-0.025em] sm:text-[34px]">Nothing goes out unless you say so.</h3>
               <p className="mt-3 max-w-[40ch] text-[17px] leading-relaxed text-text-2">
-                Jobreach finds, checks, writes and files. It never sends an email or submits an application for you,
+                Jobreach finds, checks, writes and files. You press Send, or turn on Send for me and it sends a few a day,
+                in the hours you choose, after you&apos;ve had time to read them. It never submits an application for you,
                 and there is no bulk send.
               </p>
               <div className="relative mt-10 flex min-h-[170px] flex-1 items-end">

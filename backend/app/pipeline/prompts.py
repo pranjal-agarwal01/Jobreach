@@ -61,6 +61,20 @@ reads that address, only when the post says so ("send your CV to Priya, our CTO,
 when the poster writes "email me at", that is the poster. Otherwise null.
 - shared_by_third_party: true when the poster is resharing someone else's opening."""
 
+DISCOVER_NEWS = """You read one startup news article and list the startups it reports raising \
+money. A startup that has just raised money is about to hire; that is all this list is for.
+
+- Only the startups that raised money: never the investors, acquirers, banks, funds or other \
+companies the article mentions. A weekly roundup lists several; a single-deal story lists one.
+- name: as the article writes it, without "Pvt Ltd" or similar.
+- website: only when one of the links given points to that startup's own site; copy that link \
+exactly. Otherwise null. Never write a website from memory.
+- what_it_does: a few words, from the article.
+- round ("seed", "Series A", "pre-Series A"), amount as written ("$5 Mn", "Rs 100 Cr") and city: \
+from the article, or null.
+- An empty list when the article reports no funding round (a feature, an opinion piece, a \
+layoff, results)."""
+
 COMPANY = """You summarise what a company actually does from its own homepage text, to check \
 a job post before a job seeker writes to it.
 

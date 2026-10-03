@@ -3,9 +3,10 @@
 import { useSearchParams } from "next/navigation";
 import { ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import type { GmailStatus } from "@/lib/types";
-import { IconAlert, IconCheck, IconChevronRight, IconMail, IconX } from "./icons";
-import { Button, Card, ErrorNote } from "./ui";
+import Link from "next/link";
+import type { GmailStatus, SendForMe as SendSettings } from "@/lib/types";
+import { IconAlert, IconCheck, IconChevronRight, IconClock, IconMail, IconSend, IconX } from "./icons";
+import { Badge, Button, Card, ErrorNote, Field, inputCls } from "./ui";
 
 /**
  * The person's Gmail connection, and a way to start one. `connect` opens the guide first; the
@@ -87,7 +88,7 @@ function GmailGuide({ open, onClose, onContinue, busy, error, unverified, reconn
     { title: "Allow drafts",
       body: <>Google asks to let Jobreach &ldquo;Manage drafts and send emails&rdquo;. If there&apos;s a box beside it, tick it,
         then <Nowrap>press <Key>Continue</Key>.</Nowrap></>,
-      aside: "Gmail has no permission for drafts alone. Jobreach only ever creates drafts; sending is always you, in Gmail." },
+      aside: "Gmail has no permission for drafts alone. Jobreach creates drafts, and sends one only if you turn on Send for me." },
     { title: "You're back here",
       body: "Letters that are ready go into your Gmail Drafts with their resume attached. New ones follow as they're written." },
   ];
@@ -214,11 +215,12 @@ function Note({ tone, icon, children, action, onClose }: {
   );
 }
 
-/** Profile > Gmail: the connection, what it allows, and a way out. */
+/** Profile > Gmail: the connection, what it allows, and a way out; then Send for me. */
 export function GmailCard() {
-  const { status, connect, disconnect, busy, error, guide } = useGmail();
+  const { status, load, connect, disconnect, busy, error, guide } = useGmail();
   if (!status) return <div className="h-32 animate-pulse rounded-2xl bg-sunken" />;
   return (
+    <div className="flex flex-col gap-4">
     <Card title="Gmail">
       {!status.available ? (
         <p className="text-[15px] text-muted">Gmail drafts aren&apos;t set up on this server yet. Copy each letter from its page instead.</p>
@@ -243,12 +245,218 @@ export function GmailCard() {
       <ErrorNote error={error} />
       {status.available && (
         <p className="mt-4 max-w-2xl text-[13px] leading-relaxed text-muted">
-          Google will ask you to let Jobreach &ldquo;manage drafts and send emails&rdquo;: Gmail has no permission for drafts
-          alone. Jobreach only ever creates drafts; it has no way to send, read or delete your mail. Disconnecting removes
-          Jobreach&apos;s access at Google.
+          Google asks you to let Jobreach &ldquo;manage drafts and send emails&rdquo;: Gmail has no permission for drafts
+          alone. Jobreach creates drafts, and sends them only if you turn on Send for me. It can&apos;t read or delete your
+          mail. Disconnecting removes Jobreach&apos;s access at Google.
         </p>
       )}
       {guide}
     </Card>
+    {status.available && status.connected && status.send && <SendForMe email={status.email} s={status.send} reload={load} />}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Send for me
+
+/** "today, 3:42 PM", "tomorrow, 2:10 PM" or "Mon, 2:10 PM", in the person's sending time zone. */
+export function fmtSendAt(iso: string, tz?: string | null): string {
+  const zone = tz ? { timeZone: tz } : {};
+  const day = (d: Date) => new Intl.DateTimeFormat("en-CA", { ...zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const at = new Date(iso);
+  const time = new Intl.DateTimeFormat(undefined, { ...zone, hour: "numeric", minute: "2-digit" }).format(at);
+  if (day(at) === day(new Date())) return "today, " + time;
+  if (day(at) === day(new Date(Date.now() + 86_400_000))) return "tomorrow, " + time;
+  return new Intl.DateTimeFormat(undefined, { ...zone, weekday: "short" }).format(at) + ", " + time;
+}
+
+/** "India Standard Time" rather than "Asia/Kolkata". */
+export function zoneName(tz: string): string {
+  try {
+    return new Intl.DateTimeFormat(undefined, { timeZone: tz, timeZoneName: "long" }).formatToParts(new Date())
+      .find((x) => x.type === "timeZoneName")?.value ?? tz;
+  } catch { return tz; }
+}
+
+const HOURS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
+const hourLabel = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+};
+const WAITS: [number, string][] = [[60, "1 hour"], [120, "2 hours"], [240, "4 hours"], [720, "12 hours"]];
+const waitLabel = (min: number) => WAITS.find(([m]) => m === min)?.[1] ?? `${Math.round(min / 60)} hours`;
+const CAPS = [3, 5, 10, 15, 20];
+
+type Form = { window_start: string; window_end: string; daily_cap: number; grace_minutes: number };
+
+/** Profile > Gmail: the opt-in, its hours, what is lined up and a way out. */
+function SendForMe({ email, s, reload }: { email: string | null; s: SendSettings; reload: () => Promise<void> | void }) {
+  const [form, setForm] = useState<Form>({ window_start: s.window_start, window_end: s.window_end,
+    daily_cap: s.daily_cap, grace_minutes: s.grace_minutes });
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const tz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : s.timezone;
+  const badWindow = form.window_start === form.window_end;
+
+  async function save(enabled: boolean) {
+    setBusy(true); setError(null);
+    try {
+      await api.put("/gmail/send-for-me", { enabled, ...form, timezone: tz });
+      setEditing(false); setConfirming(false);
+      await reload();
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    setBusy(false);
+  }
+
+  const hours = `${hourLabel(s.window_start)} and ${hourLabel(s.window_end)}`;
+  const settings = (
+    <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr]">
+      <Field label="From">
+        <select className={inputCls} value={form.window_start} onChange={(e) => setForm({ ...form, window_start: e.target.value })}>
+          {HOURS.map((h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+        </select>
+      </Field>
+      <Field label="Until">
+        <select className={inputCls} value={form.window_end} onChange={(e) => setForm({ ...form, window_end: e.target.value })}>
+          {HOURS.map((h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+        </select>
+      </Field>
+      <Field label="Letters a day, at most">
+        <select className={inputCls} value={form.daily_cap} onChange={(e) => setForm({ ...form, daily_cap: Number(e.target.value) })}>
+          {CAPS.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </Field>
+      <Field label="Wait in drafts, at least">
+        <select className={inputCls} value={form.grace_minutes} onChange={(e) => setForm({ ...form, grace_minutes: Number(e.target.value) })}>
+          {WAITS.map(([m, l]) => <option key={m} value={m}>{l}</option>)}
+        </select>
+      </Field>
+    </div>
+  );
+
+  return (
+    <Card title="Send for me" actions={s.enabled
+      ? (s.paused_reason ? <Badge tone="warn">Paused</Badge> : <Badge tone="ok"><IconCheck size={13} /> On</Badge>)
+      : <Badge>Off</Badge>}>
+      {!s.enabled ? (
+        <>
+          <p className="max-w-2xl text-[15px] leading-relaxed text-text-2">
+            Turn this on and Jobreach sends the letters that passed every check from your Gmail, so you don&apos;t open
+            each draft. They go at random moments inside your hours, a few a day, never sooner than your waiting time
+            after they reach your drafts. Until a letter goes, you can edit it in Gmail or stop it here.
+          </p>
+          <div className="mt-5">{settings}</div>
+          <p className="mt-2 text-[13px] text-muted">Times are in {zoneName(tz)}.</p>
+          {badWindow && <p className="mt-2 text-sm text-warn">Choose an end time different from the start.</p>}
+          <ErrorNote error={error} />
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Button disabled={badWindow} onClick={() => setConfirming(true)}><IconSend size={16} /> Turn on Send for me</Button>
+          </div>
+          <p className="mt-4 max-w-2xl text-[13px] leading-relaxed text-muted">
+            Never sent for you: letters that need a look, ones you marked sent or stopped, and letters whose post is more than
+            three days old. It pauses itself if two letters bounce in a week.
+          </p>
+        </>
+      ) : (
+        <>
+          {s.paused_reason && (
+            <div role="status" className="mb-4 flex items-start gap-3 rounded-xl border border-warn/30 bg-warn-soft px-4 py-3">
+              <IconAlert size={18} className="mt-0.5 shrink-0 text-warn" />
+              <div className="min-w-0 flex-1 text-sm leading-relaxed">
+                <p><span className="font-semibold">Paused.</span> {s.paused_reason}</p>
+                <Button variant="secondary" className="mt-2.5" busy={busy} onClick={() => save(true)}>Turn back on</Button>
+              </div>
+            </div>
+          )}
+          <p className="max-w-2xl text-[15px] leading-relaxed text-text-2">
+            Sending from <span className="font-semibold text-text">{email}</span>: up to {s.daily_cap} letters a day, between{" "}
+            {hours}, each at least {waitLabel(s.grace_minutes)} after it reaches your drafts.
+            {s.timezone !== tz && <> Times are in {zoneName(s.timezone)}.</>}
+          </p>
+
+          <h3 className="mt-5 text-sm font-semibold">Lined up</h3>
+          {s.upcoming.length === 0 ? (
+            <p className="mt-1 text-sm text-muted">Nothing yet. New letters are lined up as they reach your Gmail drafts.</p>
+          ) : (
+            <ol className="mt-2 divide-y divide-border rounded-xl border border-border">
+              {s.upcoming.map((u) => (
+                <li key={u.application_id}>
+                  <Link href={`/jobs/${u.application_id}`}
+                    className="flex flex-col gap-0.5 px-4 py-2.5 text-sm hover:bg-sunken/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/20 sm:flex-row sm:items-center sm:gap-3">
+                    <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap font-semibold text-accent sm:w-44">
+                      <IconClock size={14} /> <span className="first-letter:uppercase">{fmtSendAt(u.send_at, s.timezone)}</span>
+                    </span>
+                    <span className="min-w-0 flex-1 sm:truncate">{u.company ?? "A company"}<span className="text-muted"> · {u.role_title}</span></span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          )}
+          <p className="mt-3 text-[13px] text-muted">Sent in the last 24 hours: {s.sent_last_24h}</p>
+
+          {editing && <div className="mt-5 border-t border-border pt-5">{settings}
+            {badWindow && <p className="mt-2 text-sm text-warn">Choose an end time different from the start.</p>}</div>}
+          <ErrorNote error={error} />
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            {editing
+              ? <><Button busy={busy} disabled={badWindow} onClick={() => save(true)}>Save hours</Button>
+                  <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button></>
+              : <Button variant="secondary" onClick={() => setEditing(true)}>Change hours</Button>}
+            <Button variant="ghost" busy={busy && !editing} onClick={() => save(false)}>Turn off</Button>
+          </div>
+        </>
+      )}
+      <ConfirmSend open={confirming} onClose={() => setConfirming(false)} onConfirm={() => save(true)} busy={busy}
+        email={email} form={form} tz={tz} error={confirming ? error : null} />
+    </Card>
+  );
+}
+
+/** The consent: what turning it on means, said plainly, before anything is sent. */
+function ConfirmSend({ open, onClose, onConfirm, busy, email, form, tz, error }: {
+  open: boolean; onClose: () => void; onConfirm: () => void; busy: boolean; email: string | null; form: Form; tz: string;
+  error: string | null;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) { d.showModal(); cancelRef.current?.focus({ preventScroll: true }); d.scrollTop = 0; }
+    if (!open && d.open) d.close();
+  }, [open]);
+  const points = [
+    <>Letters go from <span className="font-semibold text-text">{email}</span>, as if you pressed Send.</>,
+    "Only letters that passed every check. A letter that needs a look always waits for you.",
+    <>At most {form.daily_cap} a day, at random moments between {hourLabel(form.window_start)} and {hourLabel(form.window_end)}, {zoneName(tz)}.</>,
+    <>Each waits at least {waitLabel(form.grace_minutes)} in your Gmail drafts first. Edit it there and your version goes; stop it on
+      its page here.</>,
+    "It pauses itself if letters start bouncing, and you can turn it off at any time.",
+  ];
+  return (
+    <dialog ref={ref} onClose={onClose} aria-labelledby="send-confirm-title"
+      onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}
+      className="sheet m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl border border-border bg-surface p-0 text-text shadow-[0_24px_60px_-20px_rgb(11_16_32/0.45)]">
+      <div className="p-5 sm:p-7">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent"><IconSend size={19} /></span>
+          <h2 id="send-confirm-title" className="min-w-0 flex-1 pt-1.5 text-lg font-bold leading-snug tracking-[-0.01em]">
+            Let Jobreach send your letters?
+          </h2>
+        </div>
+        <ul className="mt-5 flex flex-col gap-3 text-[15px] leading-relaxed text-text-2">
+          {points.map((pt, i) => (
+            <li key={i} className="flex gap-2.5"><IconCheck size={17} className="mt-1 shrink-0 text-accent" /><span>{pt}</span></li>
+          ))}
+        </ul>
+        <ErrorNote error={error} />
+        <div className="mt-7 flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
+          <Button ref={cancelRef} variant="ghost" onClick={onClose} disabled={busy} className="min-h-11">Not now</Button>
+          <Button busy={busy} onClick={onConfirm} className="min-h-11 px-4"><IconSend size={16} /> Turn on</Button>
+        </div>
+      </div>
+    </dialog>
   );
 }

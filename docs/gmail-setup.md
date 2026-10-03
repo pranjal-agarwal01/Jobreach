@@ -67,6 +67,18 @@ allows drafts (`gmail.compose`) is one Google classes as restricted.
   look have a **Draft in Gmail** button on their page. Disconnecting (Profile → Gmail) removes the
   access at Google.
 
+## Send for me (opt-in)
+
+Off by default. A person turns it on in Profile, under Gmail, after a screen that says plainly what it
+does. From then on, letters that passed every check are sent from their Gmail (drafts.send, the
+same gmail.compose permission): at random moments inside the hours they chose, at most their
+daily number (20 at most), and never sooner than their waiting time after the letter reached their
+drafts. Until then they can edit it in Gmail (the edited version goes) or press "Don't send this
+one" on its page. Letters that need a look, letters marked sent or closed, and letters whose post
+is more than three days old are never sent for them. It pauses itself after two bounces in a week,
+or when Gmail's own sending limit is reached. Only Send for me can call drafts.send; the code
+refuses it anywhere else, and refuses sending a new message or reading mail everywhere.
+
 ## When Google has verified the app
 
 Set `GOOGLE_APP_VERIFIED=1` (backend/.env and Render). The guide then leaves out the "Google hasn't

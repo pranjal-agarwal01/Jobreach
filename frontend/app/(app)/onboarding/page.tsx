@@ -261,7 +261,8 @@ function OneForm({ onStarted }: { onStarted: () => void }) {
             <p className="text-text-2">
               It is used only to produce your resumes and drafts. To read posts and write drafts, text is processed by
               OpenAI models through Microsoft&apos;s Azure OpenAI service, which does not use it to train models.
-              Jobreach never sends an email or submits an application for you. You can delete your account and all of
+              Jobreach never submits an application for you, and sends an email only if you turn on Send for me. You
+              can delete your account and all of
               your data at any time from Profile.
             </p>
             <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-border-strong p-4 has-[:checked]:border-accent has-[:checked]:bg-accent-soft">

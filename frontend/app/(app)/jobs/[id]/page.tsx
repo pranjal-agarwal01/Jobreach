@@ -4,15 +4,15 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
-  IconAlert, IconCheck, IconChevronDown, IconCopy, IconDownload, IconExternal, IconEye, IconLink, IconMail, IconSend,
-  IconX,
+  IconAlert, IconCheck, IconChevronDown, IconClock, IconCopy, IconDownload, IconExternal, IconEye, IconLink, IconMail,
+  IconSend, IconX,
 } from "@/components/icons";
 import {
   Badge, Button, ErrorNote, Field, Monogram, Postmark, SENT_STATES, STATUS_LABEL, fmtDayInline, fmtWhen,
   hoursLabel, inputCls,
 } from "@/components/ui";
 import { MatchDial } from "@/components/OpportunityCard";
-import { useGmail } from "@/components/GmailConnect";
+import { fmtSendAt, useGmail } from "@/components/GmailConnect";
 import PdfDialog from "@/components/PdfDialog";
 import { api } from "@/lib/api";
 import { BUCKET } from "@/lib/opportunity";
@@ -71,6 +71,7 @@ export default function JobFolderPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [justSent, setJustSent] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const { status: gmailStatus, connect: gmailConnect, guide: gmailGuide } = useGmail();
   const load = useCallback(() => api.get<AppDetail>(`/applications/${id}`).then(setD).catch((e) => setError(e.message)), [id]);
   useEffect(() => { load(); }, [load]);
@@ -117,6 +118,12 @@ export default function JobFolderPage() {
     load();
   };
   const failed = draft?.lint.filter((c) => !c.ok) ?? [];
+  async function stopSend() {
+    setStopping(true); setError(null);
+    try { await api.post(`/applications/${id}/send-cancel`); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    setStopping(false);
+  }
   async function draftInGmail() {
     setError(null);
     try { await api.post(`/applications/${id}/gmail-draft`); setDrafting(true); }
@@ -195,13 +202,30 @@ export default function JobFolderPage() {
                   </dl>
                   <LetterBody plain={draft.plain} />
                 </div>
-                {draft.gmail_link && (
+                {draft.gmail_link && !draft.gmail_sent_at && (
                   <p className="flex items-center gap-2 border-t border-inland-edge bg-ok-soft/60 px-5 py-2.5 text-sm font-medium text-ok sm:px-10">
                     <IconCheck size={16} /> In your Gmail drafts{gmailStatus?.email ? ` (${gmailStatus.email})` : ""}, with the resume attached
                   </p>
                 )}
+                {draft.gmail_sent_at ? (
+                  <p className="flex items-center gap-2 border-t border-inland-edge bg-ok-soft/60 px-5 py-2.5 text-sm font-medium text-ok sm:px-10">
+                    <IconSend size={15} className="shrink-0" /> Sent from your Gmail by Send for me, {fmtSendAt(draft.gmail_sent_at, gmailStatus?.send?.timezone)}
+                  </p>
+                ) : draft.send_at ? (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-inland-edge bg-accent-soft/60 px-5 py-2.5 text-sm sm:px-10">
+                    <span className="flex min-w-0 flex-1 basis-full items-start gap-2 font-medium text-accent sm:basis-auto">
+                      <IconClock size={16} className="mt-0.5 shrink-0" />
+                      <span>Send for me sends this {fmtSendAt(draft.send_at, gmailStatus?.send?.timezone)}. Edit it in Gmail before then and your version goes.</span>
+                    </span>
+                    <Button variant="ghost" busy={stopping} onClick={stopSend}>Don&apos;t send this one</Button>
+                  </div>
+                ) : draft.send_cancelled_at && (
+                  <p className="border-t border-inland-edge px-5 py-2.5 text-sm text-muted sm:px-10">
+                    You stopped Send for me for this letter. It stays in your Gmail drafts.
+                  </p>
+                )}
                 <footer className="flex flex-wrap items-center gap-2 border-t border-inland-edge bg-surface/70 px-5 py-3 sm:px-10">
-                  {draft.gmail_link ? (
+                  {draft.gmail_link && !draft.gmail_sent_at ? (
                     <a href={draft.gmail_link} target="_blank" rel="noreferrer"><Button><IconMail size={17} /> Open the draft in Gmail</Button></a>
                   ) : gmailStatus?.connected && (
                     <Button busy={drafting} onClick={draftInGmail}><IconMail size={17} /> Draft in Gmail</Button>
@@ -220,8 +244,11 @@ export default function JobFolderPage() {
                 </footer>
               </article>
               {draft.gmail_error && !draft.gmail_link && <ErrorNote error={`Gmail: ${draft.gmail_error}`} />}
+              {draft.send_error && !draft.gmail_sent_at && <ErrorNote error={`Send for me didn't send it: ${draft.send_error}`} />}
               <p className="px-1 text-[13px] leading-relaxed text-muted">
-                {draft.gmail_link
+                {draft.gmail_sent_at
+                  ? <>It went from your Gmail. Replies come to your inbox; record them here.</>
+                  : draft.gmail_link
                   ? <>Open the draft in Gmail, read it, press Send there, then mark it sent here.</>
                   : <>Paste into Gmail, attach the PDF, press Send. &ldquo;Copy with resume link&rdquo; swaps &ldquo;resume is attached&rdquo;
                     for a link, so there&apos;s nothing to attach.

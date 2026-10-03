@@ -3,8 +3,9 @@
 A job seeker gives their real history once. Jobreach finds openings on its own (public company job
 boards, careers pages, Hacker News), scores each one against their own work, and for the ones they
 pick builds a truthful one-page resume and drafts the outreach email. Posts they find themselves
-can be pasted too. **The person presses Send.** Jobreach never sends email, never submits
-applications, and never touches LinkedIn. See [PRODUCT-SPEC.md](PRODUCT-SPEC.md) and
+can be pasted too. **The person presses Send**, or turns on Send for me, an opt-in that sends
+letters that passed every check from their own Gmail, a few a day inside hours they choose, each
+one cancellable until it goes. Jobreach never submits applications and never touches LinkedIn. See [PRODUCT-SPEC.md](PRODUCT-SPEC.md) and
 [docs/plan-global-pool.md](docs/plan-global-pool.md).
 
 | Part | What | Where |

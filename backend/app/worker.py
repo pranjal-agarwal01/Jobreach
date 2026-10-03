@@ -29,19 +29,23 @@ log = logging.getLogger("worker")
 WORKER_ID = "{}:{}".format(socket.gethostname(), os.getpid())
 STALE_MINUTES = 15
 # The shared pool's tasks (pool.POOL_KINDS) run below anything a person is waiting for.
-POOL_KINDS = {"pool_tick", "poll_board", "poll_hn", "scan_company"}
+POOL_KINDS = {"pool_tick", "poll_board", "poll_hn", "scan_company", "discover_yc", "discover_news",
+              "discover_company"}
 PRIORITY_PERSON, PRIORITY_POOL = 10, 0
 SCHEDULE_CHECK_SECONDS = 60
 DB_DOWN_WAIT_SECONDS = 10
 
 
-def enqueue(conn, user_id, kind: str, payload: dict) -> int:
+def enqueue(conn, user_id, kind: str, payload: dict, run_after=None) -> int:
     """Enqueue inside the caller's transaction. The queue is not visible to users, so this
-    runs with the connection's own role. user_id is None for the pool's own tasks."""
+    runs with the connection's own role. user_id is None for the pool's own tasks. run_after:
+    not before this moment (a letter Send for me sends later)."""
     conn.execute("reset role")
     row = conn.execute(
-        "insert into task_queue (user_id, kind, payload, priority) values (%s, %s, %s, %s) returning id",
-        (user_id, kind, Jsonb(payload), PRIORITY_POOL if kind in POOL_KINDS else PRIORITY_PERSON)).fetchone()
+        """insert into task_queue (user_id, kind, payload, priority, run_after)
+           values (%s, %s, %s, %s, coalesce(%s, now())) returning id""",
+        (user_id, kind, Jsonb(payload), PRIORITY_POOL if kind in POOL_KINDS else PRIORITY_PERSON,
+         run_after)).fetchone()
     return row["id"]
 
 
@@ -102,6 +106,15 @@ def handle(task) -> None:
             log.info("board %s: %s", p["board_id"], pool.poll_board(p["board_id"], families=p.get("families")))
         elif task["kind"] == "poll_hn":
             log.info("hacker news: %s", pool.poll_hn())
+        elif task["kind"] == "discover_yc":
+            from . import discover
+            log.info("discover yc: %s", discover.discover_yc())
+        elif task["kind"] == "discover_news":
+            from . import discover
+            log.info("discover news: %s", discover.discover_news())
+        elif task["kind"] == "discover_company":
+            from . import discover
+            log.info("discover %s: %s", p.get("name"), discover.discover_company(p))
         else:
             log.info("company %s: %s", p["company_id"], pool.scan_company(p["company_id"]))
     elif task["kind"] == "process_lead":
@@ -109,6 +122,11 @@ def handle(task) -> None:
                              prepare=p.get("prepare", "always"))
     elif task["kind"] == "gmail_draft":
         gmail.create_draft(user_id, p["draft_id"])
+        from . import send
+        send.schedule(user_id, p["draft_id"])              # only when the person turned on Send for me
+    elif task["kind"] == "gmail_send":
+        from . import send
+        log.info("send for me %s: %s", p["draft_id"], send.send_due(user_id, p["draft_id"]))
     elif task["kind"] == "prepare_application":
         prepare_mod.prepare(user_id, p["match_id"], override=p.get("override", False))
     elif task["kind"] == "match_user":

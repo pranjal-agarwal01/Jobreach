@@ -3,9 +3,11 @@ Letters drafted in the person's own Gmail. They connect Gmail once, on Google's 
 screen; from then on every prepared letter is created as a draft in their mailbox, To and Subject
 filled and the page-checked resume PDF attached. They open Gmail and press Send.
 
-Jobreach never sends. Gmail has no drafts-only permission: the smallest one that allows drafts
-(gmail.compose) also allows sending, so the rule is held here, in code: the only Gmail call this
-module can make is drafts.create (ALLOWED), and any other is refused before it leaves.
+Gmail has no drafts-only permission: the smallest one that allows drafts (gmail.compose) also
+allows sending, so what Jobreach may do is held here, in code. It creates drafts (ALLOWED). It
+sends one of the person's own drafts (drafts.send, SEND_ALLOWED) only through send.py, for a
+person who turned on Send for me; every other call, reading mail included, is refused before it
+leaves.
 
 The refresh token is encrypted with a key only the backend holds (TOKEN_ENCRYPTION_KEY) and
 stored where no signed-in user can read it. Disconnecting revokes it at Google and deletes it.
@@ -34,7 +36,9 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 DRAFTS_URL = "https://gmail.googleapis.com/gmail/v1/users/me/drafts"
 SCOPES = ["openid", "email", "https://www.googleapis.com/auth/gmail.compose"]
-ALLOWED = {("POST", DRAFTS_URL)}         # the only Gmail call Jobreach makes: create a draft
+DRAFT_SEND_URL = DRAFTS_URL + "/send"
+ALLOWED = {("POST", DRAFTS_URL)}         # create a draft
+SEND_ALLOWED = {("POST", DRAFT_SEND_URL)}  # send one of the person's drafts: Send for me only (send.py)
 STATE_TTL = 15 * 60
 TIMEOUT = 20.0
 
@@ -45,6 +49,14 @@ class GmailError(RuntimeError):
 
 class NotConnected(GmailError):
     pass
+
+
+class DraftGone(GmailError):
+    """The draft is no longer in the person's Gmail drafts: they sent or deleted it there."""
+
+
+class SendLimit(GmailError):
+    """Gmail's own sending limit for the account was reached."""
 
 
 class Expired(GmailError):
@@ -227,19 +239,50 @@ def mime(to: str, subject: str, html: str, pdf: Optional[bytes], pdf_name: Optio
     return m.as_bytes()
 
 
-def _gmail(method: str, url: str, token: str, body: dict, client: Optional[httpx.Client] = None) -> dict:
-    if (method, url) not in ALLOWED:
-        raise GmailError("Jobreach only creates drafts; {} {} is not allowed".format(method, url))
+def _gmail(method: str, url: str, token: str, body: dict, client: Optional[httpx.Client] = None,
+           sending: bool = False) -> dict:
+    allowed = ALLOWED | (SEND_ALLOWED if sending else set())
+    if (method, url) not in allowed:
+        raise GmailError("Jobreach only creates drafts, and sends one only through Send for me; "
+                         "{} {} is not allowed".format(method, url))
     c = client or httpx.Client(timeout=TIMEOUT)
     try:
         r = c.request(method, url, json=body, headers={"Authorization": "Bearer " + token})
     finally:
         if client is None:
             c.close()
+    if sending:
+        return _sent(r)
     if r.status_code in (401, 403):
         raise GmailError("Gmail refused the draft ({})".format(r.status_code))
     r.raise_for_status()
     return r.json()
+
+
+def _sent(r: httpx.Response) -> dict:
+    """Gmail's answer to drafts.send, as Send for me needs it."""
+    if r.status_code == 200:
+        return r.json()
+    try:
+        err = r.json().get("error") or {}
+    except ValueError:
+        err = {}
+    reasons = {e.get("reason") for e in err.get("errors") or []}
+    if r.status_code == 404:
+        raise DraftGone("The letter wasn't in your Gmail drafts any more (sent or deleted there)")
+    if r.status_code == 429 or reasons & {"rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded"}:
+        raise SendLimit("Gmail's sending limit for your account was reached")
+    if r.status_code in (400, 401, 403):
+        raise GmailError("Gmail refused to send it ({}): {}".format(r.status_code, err.get("message") or "no reason given"))
+    r.raise_for_status()                    # 5xx: Gmail had a problem; the worker tries again
+    return r.json()
+
+
+def send_draft(user_id: str, gmail_draft_id: str, client: Optional[httpx.Client] = None) -> dict:
+    """Send one of the person's Gmail drafts as it is now (with any edits they made there).
+    Called only by send.py, after it checked that the person turned on Send for me."""
+    token, _ = access_token(user_id, client)
+    return _gmail("POST", DRAFT_SEND_URL, token, {"id": gmail_draft_id}, client, sending=True)
 
 
 def draft_link(email: str, message_id: Optional[str]) -> Optional[str]:
