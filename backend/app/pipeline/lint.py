@@ -21,6 +21,9 @@ URL_RE = re.compile(r"https?://\S+|www\.\S+|\b[\w\-]+\.(?:com|in|io|ai|dev|org|n
 PLACEHOLDER_RE = re.compile(r"\{\{|\}\}|\[(?:link|company|name|role|your[^\]]*|insert[^\]]*)\]|\bTODO\b|"
                             r"\bPASTE\b|\bXXX\b|lorem ipsum|<[A-Z][a-z]+ ?[A-Z]?[a-z]*>", re.I)
 NUM_RE = re.compile(r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)(\s?[kK]\b)?")
+# A letter that inventories what the seeker lacks reads as a reason not to reply (rule 10).
+LACKS_RE = re.compile(r"\bI\s+lack\b|\blacking\b|\b(?:is|are|isn['’]t|aren['’]t|not)\s+documented\b|"
+                      r"\bundocumented\b|\bunconfirmed\b|\bnot\s+a\s+graduate\b", re.I)
 DURATION_RE = re.compile(r"\b\d+\s*(?:-|to|–)\s*\d+\s*(?:months?|weeks?)\b|\b\d+\s*(?:months?|weeks?)\b", re.I)
 
 
@@ -115,6 +118,11 @@ def lint(*, subject: str, body_text: str, html: str, to_addr: Optional[str], raw
     add("length", lo <= words <= hi, "{} words; {} range is {}-{}".format(words, recipient_type, lo, hi))
 
     add("resume_attached", "resume is attached" in body_text.lower())
+
+    lacks = [m.group(0) for m in LACKS_RE.finditer(body_text)]
+    add("strengths_not_lacks", not lacks,
+        "lists what the seeker lacks ({}); say what they bring, at most one hard gap".format(", ".join(lacks[:3]))
+        if lacks else "")
 
     add("one_role", len(roles_mentioned) == 1,
         "mentions {}".format(", ".join(roles_mentioned)) if len(roles_mentioned) != 1 else "")

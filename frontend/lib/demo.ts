@@ -109,7 +109,8 @@ function draftFor(c: Co) {
   const html = paras.map((p) => `<p>${p}</p>`).join("") + SIGNATURE;
   const plain = paras.join("\n\n") + "\n\nBest regards,\nAarav Mehta\n+91 90000 00001 | aarav.mehta@example.com";
   const checks = ["no_em_dash", "no_bare_urls", "html_well_formed", "no_placeholders", "recipient_published", "numbers_backed",
-    "length", "resume_attached", "one_role", "availability_not_narrowed", "stipend_rule", "signature_verbatim"];
+    "length", "resume_attached", "one_role", "availability_not_narrowed", "stipend_rule", "signature_verbatim",
+    "strengths_not_lacks"];
   const lint = checks.map((check) => ({
     check, ok: !(c.status === "needs_review" && check === "recipient_published"),
     detail: c.status === "needs_review" && check === "recipient_published" ? "neha.iyer@gmail.com is not on the company's website" : "",

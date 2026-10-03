@@ -24,6 +24,7 @@ const CHECK_LABELS: Record<string, string> = {
   numbers_backed: "Every number is from your facts or the post", length: "Right length for the reader",
   resume_attached: "Mentions the resume", one_role: "Asks for one role", availability_not_narrowed: "Your availability as you stated it",
   stipend_rule: "Stipend line", signature_verbatim: "Your signature, exactly",
+  strengths_not_lacks: "Leads with strengths, not gaps",
 };
 const EVENT_TYPES: [string, string][] = [
   ["reply", "They replied"], ["interview", "Interview"], ["assignment", "Assignment"], ["rejection", "Rejection"],

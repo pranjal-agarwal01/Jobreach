@@ -45,8 +45,32 @@ def stipend_instruction(rule: str, floor: Optional[int], currency: str) -> str:
     return "Do not mention stipend or salary."
 
 
+LEGAL_SUFFIX_RE = re.compile(r"[\s,]+(?:pvt\.?|private|ltd\.?|limited|llp|inc\.?|llc|corp\.?|"
+                             r"corporation|gmbh|plc|co\.)(?=[\s,.]|$)", re.I)
+
+
+def everyday_name(company: Optional[str]) -> Optional[str]:
+    """The name people say: "Koenig Solutions Pvt. Ltd." -> "Koenig Solutions"."""
+    if not company:
+        return company
+    short = company
+    while True:
+        cut = LEGAL_SUFFIX_RE.sub("", short, count=1).strip(" ,.")
+        if cut == short or not cut:
+            break
+        short = cut
+    return short or company
+
+
+def display_name(name: Optional[str]) -> str:
+    """A name as it is written in a letter: "PRASHANT PANWAR" -> "Prashant Panwar"."""
+    name = re.sub(r"\s+", " ", (name or "").strip())
+    return name.title() if name and (name.isupper() or name.islower()) else name
+
+
 def recipient_line(c, company: Optional[str]) -> str:
     """Who the letter goes to, from the chosen contact (contacts.Candidate)."""
+    company = everyday_name(company)
     team = "the hiring team at {}".format(company) if company else "the hiring team"
     if c is None:
         return "Recipient: {}.".format(team)
@@ -59,21 +83,52 @@ def recipient_line(c, company: Optional[str]) -> str:
     return "Recipient: {} ({}, {}). Greet the team.".format(team, c.email, CONTEXT_LABEL[c.context])
 
 
+SIGN_OFF = "Best regards,"
+
+
+def _bare(url: str) -> str:
+    """A link as people write it in a signature: no scheme, no www, no trailing slash."""
+    return re.sub(r"^(?:https?://)?(?:www\.)?", "", url.strip()).rstrip("/")
+
+
+def default_signature(profile: dict) -> str:
+    """How a letter ends when the person hasn't written their own sign-off. Gmail adds nothing to
+    a draft created through its API, so without this a letter would stop mid-air. The web app's
+    Preferences shows the same text (frontend/components/PreferencesForm.tsx, standardSignature)."""
+    links = [_bare(u) for u in (profile.get("linkedin_url"), profile.get("github_url"), profile.get("portfolio_url"))
+             if u and u.strip()]
+    lines = [SIGN_OFF, display_name(profile.get("name")), (profile.get("phone") or "").strip(),
+             " | ".join(dict.fromkeys(links))]
+    return "\n".join(x for x in lines if x)
+
+
+def signature_for(prefs: dict, profile: dict) -> str:
+    return (prefs.get("signature_html") or "").strip() or default_signature(profile)
+
+
+def _paragraphs(paragraphs: list[str]) -> list[str]:
+    """One string per paragraph. The model sometimes puts the greeting and the first paragraph in
+    one string with a line break between them; in HTML that break would vanish and the greeting
+    would run into the text, so every line becomes its own paragraph."""
+    return [q.strip() for p in paragraphs for q in re.split(r"\s*\n\s*", p) if q.strip()]
+
+
 def render(d: EmailDraft, signature: Optional[str]) -> tuple[str, str, str]:
     """Return (html, plain_full, body_plain_without_signature)."""
-    paras = [p.strip() for p in d.paragraphs if p.strip()]
-    html_parts = ["<p>{}</p>".format(htmlmod.escape(p)) for p in paras]
+    paras = _paragraphs(d.paragraphs)
+    esc = lambda t: htmlmod.escape(t, quote=False)  # noqa: E731  (text, not attributes)
+    html_parts = ["<p>{}</p>".format(esc(p)) for p in paras]
     plain_parts = list(paras)
     if d.work_bullets:
         at = min(2, len(html_parts))
-        ul = "<ul>{}</ul>".format("".join("<li>{}</li>".format(htmlmod.escape(b)) for b in d.work_bullets))
+        ul = "<ul>{}</ul>".format("".join("<li>{}</li>".format(esc(b)) for b in d.work_bullets))
         html_parts.insert(at, ul)
         plain_parts.insert(at, "\n".join("- " + b for b in d.work_bullets))
     body_plain = "\n\n".join(plain_parts)
     html = "\n".join(html_parts)
     plain = body_plain
     if signature:
-        sig_html = "<br>".join(htmlmod.escape(line) for line in signature.strip().splitlines())
+        sig_html = "<br>".join(esc(line) for line in signature.strip().splitlines())
         html += "\n<p>{}</p>".format(sig_html)
         plain += "\n\n" + signature.strip()
     return html, plain, body_plain
@@ -82,7 +137,7 @@ def render(d: EmailDraft, signature: Optional[str]) -> tuple[str, str, str]:
 def facts_context(facts: list[dict], profile: dict, prefs: dict) -> str:
     """Per-person and stable across openings: the cached part of the S7 prompt."""
     stage = profile.get("career_stage") or "student"
-    seeker = {"name": profile.get("name"), "headline": profile.get("headline"), "stage": stage,
+    seeker = {"name": display_name(profile.get("name")), "headline": profile.get("headline"), "stage": stage,
               "graduation": profile.get("grad_date"), "batch_year": profile.get("batch_year")}
     if stage != "student" and profile.get("experience_years") is not None:
         seeker["years_of_experience"] = int(float(profile["experience_years"]))
@@ -103,7 +158,7 @@ def write(*, ex: Extracted, raw_text: str, sel: Selection, selected_bullets: lis
           published_in: Optional[list[str]] = None) -> DraftOut:
     """recipient: the chosen contacts.Candidate. published_in: where its address is written
     (the post, or the company's page it was found on); the lint checks it is there."""
-    signature = prefs.get("signature_html")
+    signature = signature_for(prefs, profile)
     floor = prefs.get("stipend_floor")
     stable = [prompts.DRAFT, "Seeker:\n" + facts_context(facts, profile, prefs)]
     base = "\n".join([
@@ -113,7 +168,8 @@ def write(*, ex: Extracted, raw_text: str, sel: Selection, selected_bullets: lis
         "Posted by: {} ({}, {})".format(ex.poster_name or "not named", ex.poster_role or "role unknown",
                                         ex.poster_type),
         "Lead with: {}".format(sel.lead_with),
-        "Gaps to name honestly: {}".format("; ".join(sel.gaps) or "none"),
+        "What the post asks for that the seeker's record doesn't show (mention at most one, and only "
+        "a hard requirement; see rule 10): {}".format("; ".join(sel.gaps[:3]) or "none"),
         "Pay instruction: {}".format(stipend_instruction(stipend_rule, floor, prefs.get("currency") or "INR")),
         "Resume bullets on the attached resume (for reference; quote numbers exactly):",
         *["- " + b for b in selected_bullets],

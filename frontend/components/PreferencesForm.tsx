@@ -11,6 +11,20 @@ const COMPANY_TYPES: [string, string][] = [
 
 const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
+const titleCase = (s: string) => s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
+/**
+ * The sign-off a letter gets when the person hasn't written their own. Mirrors default_signature in
+ * backend/app/pipeline/draft.py, which is what the letters actually use.
+ */
+export function standardSignature(p: Pick<Profile, "name" | "phone" | "linkedin_url" | "github_url" | "portfolio_url">) {
+  const bare = (u: string) => u.trim().replace(/^(?:https?:\/\/)?(?:www\.)?/, "").replace(/\/+$/, "");
+  const name = (p.name ?? "").trim().replace(/\s+/g, " ");
+  const shown = name && (name === name.toUpperCase() || name === name.toLowerCase()) ? titleCase(name) : name;
+  const links = [...new Set([p.linkedin_url, p.github_url, p.portfolio_url].filter((u): u is string => !!u?.trim()).map(bare))];
+  return ["Best regards,", shown, (p.phone ?? "").trim(), links.join(" | ")].filter(Boolean).join("\n");
+}
+
 export function Toggle({ on, set, children }: { on: boolean; set: (v: boolean) => void; children: string }) {
   return (
     <button type="button" onClick={() => set(!on)} aria-pressed={on}
@@ -30,6 +44,12 @@ export default function PreferencesForm({ prefs, profile, onSaved, submitLabel =
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // The sign-off: the standard one follows the name, phone and links until the person writes their own.
+  const [sigOwn, setSigOwn] = useState(!!prefs.signature_html?.trim());
+  const [sigText, setSigText] = useState(prefs.signature_html ?? "");
+  const standard = standardSignature(pr);
+  const sigShown = sigOwn ? sigText : standard;
+  const sigUsed = sigShown.trim() || standard;
   const student = profile.career_stage === "student" || !profile.career_stage;
   const set = <K extends keyof Preferences>(k: K, v: Preferences[K]) => { setP({ ...p, [k]: v }); setSaved(false); };
   const setProf = <K extends keyof Profile>(k: K, v: Profile[K]) => { setPr({ ...pr, [k]: v }); setSaved(false); };
@@ -47,11 +67,11 @@ export default function PreferencesForm({ prefs, profile, onSaved, submitLabel =
       });
       const { open_to, remote_ok, onsite_ok, hybrid_ok, stipend_floor, salary_floor, notice_period, currency,
         unpaid_remote_policy, unpaid_onsite_policy, excluded_company_types, freshness_ceiling_hours, duration_flex,
-        start_date, signature_html } = p;
+        start_date } = p;
       await api.put("/preferences", {
         open_to, remote_ok, onsite_ok, hybrid_ok, stipend_floor, salary_floor, notice_period, currency, unpaid_remote_policy,
         unpaid_onsite_policy, excluded_company_types, freshness_ceiling_hours, duration_flex, start_date,
-        signature_html: signature_html?.trim() ? signature_html : null,
+        signature_html: sigOwn && sigText.trim() && sigText.trim() !== standard ? sigText.trim() : null,
         locations: list(locations), excluded_companies: list(excluded),
       });
       setSaved(true);
@@ -149,7 +169,7 @@ export default function PreferencesForm({ prefs, profile, onSaved, submitLabel =
         </div>
       </Card>
 
-      <Card title="Availability and signature">
+      <Card title="Availability">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Earliest start" hint="Emails never narrow this.">
             <input className={inputCls} value={p.start_date} onChange={(e) => set("start_date", e.target.value)} />
@@ -158,12 +178,33 @@ export default function PreferencesForm({ prefs, profile, onSaved, submitLabel =
             <input className={inputCls} value={p.duration_flex} onChange={(e) => set("duration_flex", e.target.value)} />
           </Field>
         </div>
-        <div className="mt-3">
-          <Field label="Email signature (added verbatim)"
-            hint="Leave empty if Gmail adds your signature automatically when you compose.">
-            <textarea className={`${inputCls} font-mono`} rows={5} value={p.signature_html ?? ""}
-              onChange={(e) => set("signature_html", e.target.value)} />
-          </Field>
+      </Card>
+
+      <Card title="How your letters end">
+        <p className="max-w-2xl text-[15px] leading-relaxed text-text-2">
+          Gmail doesn&apos;t add your usual Gmail signature to drafts Jobreach makes, so this closes every letter,
+          exactly as written.
+        </p>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div>
+            <Field label="Sign-off and signature">
+              <textarea className={inputCls} rows={5} value={sigShown} spellCheck={false}
+                onChange={(e) => { setSigOwn(true); setSigText(e.target.value); setSaved(false); }} />
+            </Field>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+              {sigOwn
+                ? <>Your own wording. <button type="button" className="font-semibold text-accent hover:underline"
+                    onClick={() => { setSigOwn(false); setSigText(""); setSaved(false); }}>Use the standard one</button></>
+                : "Made from your name, phone and links. Edit it to write your own."}
+            </p>
+          </div>
+          <figure className="paper self-start px-5 py-4" aria-label="How a letter ends">
+            <figcaption className="font-sans text-xs text-muted">How a letter ends</figcaption>
+            <p className="mt-2 font-letter text-[15px] leading-[1.7] text-text-2">
+              &hellip; My resume is attached. Would you be open to a quick call this week?
+            </p>
+            <p className="mt-3 whitespace-pre-line break-words font-letter text-[15px] leading-[1.7] text-text">{sigUsed}</p>
+          </figure>
         </div>
       </Card>
 

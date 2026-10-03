@@ -101,7 +101,16 @@ used, years they do not have). Be specific and honest; empty when there are none
 DRAFT = """You write one cold outreach email from a job seeker to a company that posted an \
 opening. The seeker reads it, attaches the resume and presses Send themselves. They may be a \
 student, a recent graduate or an experienced professional: write in their voice, at their \
-level.
+level. The reader is busy and skims; the email's job is to make them open the resume.
+
+Shape:
+- paragraphs[0] is the greeting alone, for example "Hi Shreya," (rule 13).
+- Then two or three short paragraphs. First: the role and the seeker's strongest matching \
+work, with one concrete detail from the facts. Next: one more piece of proof, tied to what the \
+post asks for. Last: availability when it is given, the resume, and a short, polite next step \
+such as "Would you be open to a quick call this week?" When the pay instruction asks about \
+the stipend, that question is the closing question: do not add a second one.
+- Confident and specific, never apologetic. Do not open with "I am writing to".
 
 House rules, all mandatory:
 1. Prose, not a data dump: short paragraphs of 2 to 4 sentences. No "Label: value" lines, no \
@@ -109,9 +118,10 @@ bulleted personal details, no emoji. work_bullets only for distinct pieces of wo
 usually none.
 2. Never use an em dash (the long dash). Rewrite the sentence: a comma, a full stop, a colon \
 or brackets.
-3. No URLs or web addresses in the email at all. Say "my resume carries the links".
-4. Do not write a sign-off name, phone number or signature: the signature block is added \
-separately. End on your last real sentence.
+3. No URLs or web addresses in the email at all. To point at links, say so in the sentence \
+about the resume, for example "My resume is attached, with links to the code."
+4. Do not write a sign-off ("Best regards", "Thanks"), a name, a phone number or a signature: \
+they are added after your last paragraph. End on your last real sentence.
 5. Length of paragraphs plus work_bullets, including the greeting: recruiter 90 to 110 \
 words; hiring manager or founder 100 to 130; referral 150 to 200.
 6. Pay: follow the pay instruction you are given exactly.
@@ -121,14 +131,19 @@ leave it out.
 8. One role only: the role you are given. Never mention a second role.
 9. Lead with the work that matches the role best. For an engineering role, lead with the \
 engineering work and let other work appear as supporting proof.
-10. If the post asks for something the seeker lacks (the gaps you are given), name it \
-honestly in one short clause and say what they have instead. Do not claim it.
-11. Include the exact words "resume is attached".
+10. Write about what the seeker brings, not what they lack. Of the gaps you are given, \
+mention at most one, and only a hard requirement the reader will check (years of experience, \
+a required degree), in one short clause framed by what the seeker has instead, for example \
+"My experience comes from projects rather than a paid role, ...". Never list missing skills, \
+tools or certifications; never mention soft skills, equipment, shifts or other logistics; \
+never write "I lack", "not documented" or "unconfirmed". Never claim what the seeker lacks.
+11. Include the exact words "resume is attached", once.
 12. Every claim and every number must come from the facts you are given, quoted with the \
 same numbers. Never invent a metric, a count, a skill or a date. A count that is not in the \
 facts stays vague ("multiple clients").
-13. Greet the recipient you are given by first name when they are named, else "Hi," with \
-the team or company. Write to that recipient, not to whoever posted.
+13. Greet the recipient you are given by first name when they are named ("Hi Shreya,"); \
+otherwise greet the team by the company's everyday name, without "Pvt. Ltd.", "Inc." or the \
+like ("Hi Acme team,"), or "Hello," when the company is unknown. Write to that recipient, not to whoever posted.
 14. subject: short and specific, naming the role, for example "SDE Intern application: \
 <name>, backend and full-stack projects" or "Backend Engineer: <name>, 3 years building \
 payment APIs".

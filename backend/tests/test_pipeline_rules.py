@@ -248,3 +248,46 @@ def test_tailoring_reorders_skills_and_holds_the_summary_to_the_record():
     assert any("summary sentence" in n for n in ch.notes)
     assert ch.resume_data(data).tracks["frontend"].summary == ch.track.summary
     assert data.tracks["frontend"].summary != ch.track.summary              # the original is untouched
+
+
+def test_a_greeting_written_into_the_first_paragraph_still_gets_its_own_line():
+    d = good_draft(paragraphs=["Hi Priya,\n\n" + good_draft().paragraphs[1]])
+    html, plain, body = draftmod.render(d, SIG)
+    assert html.startswith("<p>Hi Priya,</p>\n<p>I build backend services")
+    assert body.startswith("Hi Priya,\n\nI build backend services")
+
+
+def test_every_letter_ends_with_a_sign_off_even_without_a_signature_of_ones_own():
+    profile = {"name": "Aarav Mehta", "phone": "+91 90000 00001", "linkedin_url": "https://www.linkedin.com/in/aarav/",
+               "github_url": "https://github.com/aarav", "portfolio_url": None}
+    sig = draftmod.default_signature(profile)
+    assert sig == "Best regards,\nAarav Mehta\n+91 90000 00001\nlinkedin.com/in/aarav | github.com/aarav"
+    assert draftmod.default_signature({"name": "Aarav Mehta"}) == "Best regards,\nAarav Mehta"
+    assert draftmod.signature_for({"signature_html": "  "}, profile) == sig
+    assert draftmod.signature_for({"signature_html": "Thanks,\nAarav"}, profile) == "Thanks,\nAarav"
+    html, plain, body = draftmod.render(good_draft(), sig)
+    assert plain.endswith(sig) and html.endswith("<p>Best regards,<br>Aarav Mehta<br>+91 90000 00001<br>"
+                                                 "linkedin.com/in/aarav | github.com/aarav</p>")
+    assert lint_for(good_draft(), signature=sig, signature_text=sig)["no_bare_urls"].ok   # links live in the signature
+
+
+@pytest.mark.parametrize("phrase", ["I lack Docker experience.", "REST API knowledge isn't documented.",
+                                    "My shift availability remains unconfirmed.", "I'm a student, not a graduate."])
+def test_a_letter_that_lists_what_the_seeker_lacks_is_sent_back(phrase):
+    d = good_draft()
+    d = d.model_copy(update={"paragraphs": [d.paragraphs[0], d.paragraphs[1] + " " + phrase]})
+    assert not lint_for(d)["strengths_not_lacks"].ok
+
+
+@pytest.mark.parametrize("company,everyday", [
+    ("Koenig Solutions Pvt. Ltd.", "Koenig Solutions"), ("Amussoft Private Limited", "Amussoft"),
+    ("Acme, Inc.", "Acme"), ("Thewitslab", "Thewitslab"), (None, None),
+])
+def test_letters_greet_a_company_by_its_everyday_name(company, everyday):
+    assert draftmod.everyday_name(company) == everyday
+
+
+def test_a_name_in_capitals_is_written_as_a_name():
+    assert draftmod.display_name("PRASHANT  PANWAR") == "Prashant Panwar"
+    assert draftmod.display_name("Aarav McKenzie") == "Aarav McKenzie"
+    assert draftmod.default_signature({"name": "PRASHANT PANWAR"}) == "Best regards,\nPrashant Panwar"

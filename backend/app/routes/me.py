@@ -10,6 +10,7 @@ from ..auth import User, current_user
 from ..config import settings
 from ..db import audit, system_tx, user_tx
 from ..onboarding import register_segments
+from ..pipeline.draft import default_signature
 from ..pipeline.run import queue_rematch
 from ..taxonomy import band_for_years
 
@@ -118,9 +119,14 @@ def put_prefs(body: PrefsIn, user: User = Depends(current_user)):
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         return {"ok": True}
-    sets = ", ".join("{} = %s".format(k) for k in fields)
-    vals = [Jsonb(v) if k == "format_settings" else v for k, v in fields.items()]
     with user_tx(user.id) as conn:
+        if "signature_html" in fields:
+            # The standard sign-off is stored as "none of my own", so it follows later profile edits.
+            sig = (fields["signature_html"] or "").strip()
+            profile = dict(conn.execute("select * from profiles").fetchone() or {})
+            fields["signature_html"] = sig if sig and sig != default_signature(profile) else None
+        sets = ", ".join("{} = %s".format(k) for k in fields)
+        vals = [Jsonb(v) if k == "format_settings" else v for k, v in fields.items()]
         conn.execute("update preferences set {}, updated_at = now()".format(sets), vals)
     queue_rematch(user.id)
     return {"ok": True}
