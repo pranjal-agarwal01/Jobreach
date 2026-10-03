@@ -147,7 +147,7 @@ def test_news_reads_each_funding_article_once(db, monkeypatch):
 def test_directory_companies_are_queued_once_each(monkeypatch):
     seen, queued = set(), []
     monkeypatch.setattr(discover, "_seen", lambda feed: set(seen))
-    monkeypatch.setattr(discover, "_remember", lambda feed, key, title, n: seen.add(key))
+    monkeypatch.setattr(discover, "_remember_many", lambda feed, rows: seen.update(k for k, _, _ in rows))
     monkeypatch.setattr(discover, "_queue_companies", lambda found: queued.extend(f.name for f in found))
     monkeypatch.setattr(discover, "_continue", lambda kind: None)
     data = [yc("Razorpay", ["India"]), yc("Remotely", ["Fully Remote"])]

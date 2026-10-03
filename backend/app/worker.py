@@ -49,6 +49,17 @@ def enqueue(conn, user_id, kind: str, payload: dict, run_after=None) -> int:
     return row["id"]
 
 
+def enqueue_many(conn, user_id, kind: str, payloads: list[dict]) -> None:
+    """Many tasks of one kind in one go (psycopg pipelines them: one round trip, not one each)."""
+    if not payloads:
+        return
+    conn.execute("reset role")
+    priority = PRIORITY_POOL if kind in POOL_KINDS else PRIORITY_PERSON
+    with conn.cursor() as cur:
+        cur.executemany("insert into task_queue (user_id, kind, payload, priority) values (%s, %s, %s, %s)",
+                        [(user_id, kind, Jsonb(p), priority) for p in payloads])
+
+
 def claim():
     with system_tx() as conn:
         # Requeue tasks whose worker died mid-run.

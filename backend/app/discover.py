@@ -246,10 +246,16 @@ def _seen(feed: str) -> set[str]:
 
 
 def _remember(feed: str, key: str, title: str, added: int) -> None:
-    with system_tx() as conn:
-        conn.execute("""insert into discovery_items (feed, item_key, title, companies) values (%s, %s, %s, %s)
-                        on conflict (feed, item_key) do update set companies = excluded.companies""",
-                     (feed, key, title[:300], added))
+    _remember_many(feed, [(key, title, added)])
+
+
+def _remember_many(feed: str, rows: list[tuple[str, str, int]]) -> None:
+    if not rows:
+        return
+    with system_tx() as conn, conn.cursor() as cur:
+        cur.executemany("""insert into discovery_items (feed, item_key, title, companies) values (%s, %s, %s, %s)
+                           on conflict (feed, item_key) do update set companies = excluded.companies""",
+                        [(feed, key, title[:300], n) for key, title, n in rows])
 
 
 def _continue(kind: str) -> None:
@@ -266,10 +272,9 @@ def _continue(kind: str) -> None:
 
 def _queue_companies(found: list[Found]) -> None:
     from dataclasses import asdict
-    from .worker import enqueue
+    from .worker import enqueue_many
     with system_tx() as conn:
-        for f in found:
-            enqueue(conn, None, "discover_company", asdict(f))
+        enqueue_many(conn, None, "discover_company", [asdict(f) for f in found])
 
 
 def discover_company(payload: dict) -> Optional[str]:
@@ -287,8 +292,7 @@ def discover_yc(data: Optional[list[dict]] = None) -> dict:
     seen = _seen("yc")
     todo = [f for f in found if f.key not in seen][:YC_PER_TASK]
     _queue_companies(todo)
-    for f in todo:
-        _remember("yc", f.key, f.name, 1)
+    _remember_many("yc", [(f.key, f.name, 1) for f in todo])
     left = max(0, len([f for f in found if f.key not in seen]) - len(todo))
     if left:
         _continue("discover_yc")
