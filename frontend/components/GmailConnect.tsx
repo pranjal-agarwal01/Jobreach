@@ -283,7 +283,7 @@ const hourLabel = (hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number);
   return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 };
-const WAITS: [number, string][] = [[60, "1 hour"], [120, "2 hours"], [240, "4 hours"], [720, "12 hours"]];
+const WAITS: [number, string][] = [[30, "30 minutes"], [60, "1 hour"], [120, "2 hours"], [240, "4 hours"], [720, "12 hours"]];
 const waitLabel = (min: number) => WAITS.find(([m]) => m === min)?.[1] ?? `${Math.round(min / 60)} hours`;
 const CAPS = [3, 5, 10, 15, 20];
 
