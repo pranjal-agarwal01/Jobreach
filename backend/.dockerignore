@@ -1,3 +1,8 @@
+# Secrets live in the host's environment settings, never in the image.
+.env
+.env.*
+!.env.example
+
 __pycache__/
 *.pyc
 .pytest_cache/

@@ -30,7 +30,7 @@ def pool() -> ConnectionPool:
         if not settings.database_url:
             raise RuntimeError("DATABASE_URL is not set (backend/.env)")
         # prepare_threshold=None: server-side prepared statements break behind poolers.
-        _pool = ConnectionPool(settings.database_url, min_size=1, max_size=10, open=True,
+        _pool = ConnectionPool(settings.database_url, min_size=1, max_size=settings.db_pool_max, open=True,
                                kwargs={"row_factory": dict_row, "prepare_threshold": None,
                                        "autocommit": False})
     return _pool

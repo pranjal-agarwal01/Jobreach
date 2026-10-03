@@ -50,7 +50,13 @@ class Settings:
         "CORS_ORIGINS", "http://localhost:3000"))
     # Where this API is reachable from outside: resume share links point here. Until the API
     # is deployed, links work only on this machine.
-    public_base_url: str = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").strip()
+    # On Render the service's own public hostname is used when PUBLIC_BASE_URL is not set.
+    public_base_url: str = (os.environ.get("PUBLIC_BASE_URL") or (
+        "https://" + os.environ["RENDER_EXTERNAL_HOSTNAME"] if os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+        else "http://localhost:8000")).strip()
+    # Database connections this process may hold. The API and the worker share Supabase's
+    # pooler, so each is kept small.
+    db_pool_max: int = int(os.environ.get("DB_POOL_MAX", "10"))
     worker_poll_seconds: float = float(os.environ.get("WORKER_POLL_SECONDS", "2"))
     # The shared pool (pool.py): the worker schedules a pool tick this often. It reads job boards
     # only while some user needs a kind of role, so an empty pool costs nothing.
