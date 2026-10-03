@@ -14,7 +14,7 @@ import traceback
 
 from psycopg.types.json import Jsonb
 
-from . import llm
+from . import gmail, llm
 from . import onboarding
 from .config import settings
 from .db import system_tx
@@ -92,6 +92,8 @@ def handle(task) -> None:
     elif task["kind"] == "process_lead":
         run_mod.process_lead(user_id, p["job_id"], override=p.get("override", False),
                              prepare=p.get("prepare", "always"))
+    elif task["kind"] == "gmail_draft":
+        gmail.create_draft(user_id, p["draft_id"])
     elif task["kind"] == "prepare_application":
         prepare_mod.prepare(user_id, p["match_id"], override=p.get("override", False))
     elif task["kind"] == "match_user":
@@ -144,7 +146,7 @@ def run_forever() -> None:
             _done(task["id"])
             log.info("task %s %s done in %.1fs", task["id"], task["kind"], time.monotonic() - t0)
         except (llm.LLMRefusal, resume_mod.ResumeTooLong, run_mod.LeadError, prepare_mod.PrepareError,
-                match_mod.MatchError, opp_mod.OpportunityError, ValueError) as e:
+                match_mod.MatchError, opp_mod.OpportunityError, gmail.GmailError, ValueError) as e:
             _failed(task, str(e), retry=False)
             log.warning("task %s %s failed: %s", task["id"], task["kind"], e)
         except Exception as e:  # transient: API, network, renderer

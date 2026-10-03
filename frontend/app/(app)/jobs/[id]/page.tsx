@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
-  IconAlert, IconCheck, IconChevronDown, IconCopy, IconDownload, IconExternal, IconEye, IconLink, IconSend, IconX,
+  IconAlert, IconCheck, IconChevronDown, IconCopy, IconDownload, IconExternal, IconEye, IconLink, IconMail, IconSend,
+  IconX,
 } from "@/components/icons";
 import {
   Badge, Button, ErrorNote, Field, Monogram, Postmark, SENT_STATES, STATUS_LABEL, fmtDayInline, fmtWhen,
   hoursLabel, inputCls,
 } from "@/components/ui";
 import { MatchDial } from "@/components/OpportunityCard";
+import { useGmail } from "@/components/GmailConnect";
 import PdfDialog from "@/components/PdfDialog";
 import { api } from "@/lib/api";
 import { BUCKET } from "@/lib/opportunity";
@@ -67,8 +69,22 @@ export default function JobFolderPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [justSent, setJustSent] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const { status: gmailStatus, connect: gmailConnect } = useGmail();
   const load = useCallback(() => api.get<AppDetail>(`/applications/${id}`).then(setD).catch((e) => setError(e.message)), [id]);
   useEffect(() => { load(); }, [load]);
+  // While a Gmail draft is being made, look again every couple of seconds (about 30 s at most).
+  useEffect(() => {
+    if (!drafting) return;
+    let n = 0;
+    const t = setInterval(async () => {
+      n += 1;
+      const next = await api.get<AppDetail>(`/applications/${id}`).catch(() => null);
+      if (next) setD(next);
+      if (!next || next.draft?.gmail_link || next.draft?.gmail_error || n > 15) setDrafting(false);
+    }, 2000);
+    return () => clearInterval(t);
+  }, [drafting, id]);
 
   if (!d) return error ? <ErrorNote error={error} /> : <div className="h-96 animate-pulse rounded-2xl bg-sunken" />;
   const { application: a, draft, resume, events } = d;
@@ -100,6 +116,11 @@ export default function JobFolderPage() {
     load();
   };
   const failed = draft?.lint.filter((c) => !c.ok) ?? [];
+  async function draftInGmail() {
+    setError(null);
+    try { await api.post(`/applications/${id}/gmail-draft`); setDrafting(true); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -173,8 +194,18 @@ export default function JobFolderPage() {
                   </dl>
                   <LetterBody plain={draft.plain} />
                 </div>
+                {draft.gmail_link && (
+                  <p className="flex items-center gap-2 border-t border-inland-edge bg-ok-soft/60 px-5 py-2.5 text-sm font-medium text-ok sm:px-10">
+                    <IconCheck size={16} /> In your Gmail drafts{gmailStatus?.email ? ` (${gmailStatus.email})` : ""}, with the resume attached
+                  </p>
+                )}
                 <footer className="flex flex-wrap items-center gap-2 border-t border-inland-edge bg-surface/70 px-5 py-3 sm:px-10">
-                  <Button onClick={() => copyRich(draft.html, draft.plain, "email")}>
+                  {draft.gmail_link ? (
+                    <a href={draft.gmail_link} target="_blank" rel="noreferrer"><Button><IconMail size={17} /> Open the draft in Gmail</Button></a>
+                  ) : gmailStatus?.connected && (
+                    <Button busy={drafting} onClick={draftInGmail}><IconMail size={17} /> Draft in Gmail</Button>
+                  )}
+                  <Button variant={draft.gmail_link || gmailStatus?.connected ? "secondary" : "primary"} onClick={() => copyRich(draft.html, draft.plain, "email")}>
                     {copied === "email" ? <><IconCheck size={17} /> Copied</> : <><IconCopy size={17} /> Copy email</>}
                   </Button>
                   {resume && (
@@ -182,14 +213,21 @@ export default function JobFolderPage() {
                       {copied === "email-link" ? <><IconCheck size={17} /> Copied</> : <><IconLink size={17} /> Copy with resume link</>}
                     </Button>
                   )}
-                  {draft.gmail_url && (
+                  {!gmailStatus?.connected && draft.gmail_url && (
                     <a href={draft.gmail_url} target="_blank" rel="noreferrer"><Button variant="ghost"><IconExternal size={16} /> Open in Gmail</Button></a>
                   )}
                 </footer>
               </article>
+              {draft.gmail_error && !draft.gmail_link && <ErrorNote error={`Gmail: ${draft.gmail_error}`} />}
               <p className="px-1 text-[13px] leading-relaxed text-muted">
-                Paste into Gmail, attach the PDF, press Send. &ldquo;Copy with resume link&rdquo; swaps &ldquo;resume is attached&rdquo;
-                for a link, so there&apos;s nothing to attach.
+                {draft.gmail_link
+                  ? <>Open the draft in Gmail, read it, press Send there, then mark it sent here.</>
+                  : <>Paste into Gmail, attach the PDF, press Send. &ldquo;Copy with resume link&rdquo; swaps &ldquo;resume is attached&rdquo;
+                    for a link, so there&apos;s nothing to attach.
+                    {gmailStatus?.available && !gmailStatus.connected && (
+                      <> Or <button type="button" onClick={gmailConnect} className="font-semibold text-accent hover:underline">connect Gmail</button> and
+                        letters wait in your drafts with the resume attached.</>
+                    )}</>}
               </p>
               <Checks draft={draft} failed={failed.length} />
             </>

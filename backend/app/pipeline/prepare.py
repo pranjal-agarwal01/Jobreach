@@ -10,7 +10,7 @@ from typing import Optional
 
 from psycopg.types.json import Jsonb
 
-from .. import llm
+from .. import gmail, llm
 from ..db import user_tx
 from ..provenance import Corpus
 from . import draft as draftmod
@@ -114,25 +114,32 @@ def prepare(user_id: str, match_id: str, override: bool = False) -> dict:
 
     result = {"application_id": app_id, "resume_id": resume_id, "route": route}
     status = "drafted"
+    draft_id = None
     if route == "email":
         d = write_letter(data=data, chosen=chosen, built=built, raw_text=job["raw_text"], ex=ex, screen=screen,
                          contact=contact, profile=profile, prefs=prefs, facts=[dict(f) for f in facts],
                          education=[dict(e) for e in education], ctx=ctx)
         with user_tx(user_id) as conn:
             n = conn.execute("select count(*) as n from drafts where application_id = %s", (app_id,)).fetchone()["n"]
-            conn.execute(
+            draft_id = conn.execute(
                 """insert into drafts (user_id, application_id, to_addrs, subject, html, facts_used, lint,
                        lint_ok, version, idempotency_key)
-                   values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                   values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) returning id::text""",
                 (user_id, app_id, [screen.get("apply_to")], d.subject, d.html, Jsonb(d.facts_used),
-                 Jsonb([c.as_json() for c in d.checks]), d.ok, n + 1, "{}:{}:v{}".format(user_id, key, n + 1)))
+                 Jsonb([c.as_json() for c in d.checks]), d.ok, n + 1, "{}:{}:v{}".format(user_id, key, n + 1))).fetchone()["id"]
         status = "drafted" if d.ok else "needs_review"
         result.update({"lint_ok": d.ok, "draft_attempts": d.attempts})
 
+    # A letter that passed every check goes straight to the person's Gmail drafts when connected.
+    to_gmail = draft_id is not None and status == "drafted" and gmail.configured() \
+        and (gmail.connection(user_id) or {}).get("status") == "active"
     with user_tx(user_id) as conn:
         conn.execute("update applications set status = %s where id = %s", (status, app_id))
         conn.execute("update matches set prepare_status = 'done', prepare_error = null where id = %s", (match_id,))
+        if to_gmail:
+            gmail.queue_draft(conn, user_id, draft_id)     # last: it leaves the person's role
     result["status"] = status
+    result["gmail"] = to_gmail
     return result
 
 

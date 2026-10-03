@@ -12,7 +12,7 @@ from fastapi.responses import Response
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 
-from .. import onboarding
+from .. import gmail, onboarding
 from ..auth import User, current_user
 from ..config import settings
 from ..db import audit, system_tx, user_tx
@@ -20,7 +20,7 @@ from ..pipeline import resume as resume_mod
 from ..pipeline import match as match_mod
 from ..pipeline import run as run_mod
 from ..pipeline.contacts import CONTEXT_LABEL
-from ..pipeline.draft import gmail_compose_url
+from ..pipeline.draft import gmail_compose_url, html_to_plain
 from ..worker import enqueue
 
 router = APIRouter()
@@ -281,6 +281,8 @@ APP_SELECT = """
   select a.*, j.extracted->>'company_name' as company_name, j.extracted->>'poster_name' as poster_name,
          j.source_ref, j.source, c.domain, c.verification, c.business_summary,
          (select d.lint_ok from drafts d where d.application_id = a.id order by d.version desc limit 1) as lint_ok,
+         (select d.gmail_draft_id is not null from drafts d where d.application_id = a.id
+          order by d.version desc limit 1) as in_gmail,
          rs.resume_id, rs.resume_filename
   from applications a
   join jobs j on j.id = a.job_id
@@ -297,16 +299,6 @@ APP_SELECT = """
 def applications(user: User = Depends(current_user)):
     with user_tx(user.id) as conn:
         return conn.execute(APP_SELECT + " order by a.created_at desc limit 500").fetchall()
-
-
-def _html_to_plain(html: str) -> str:
-    text = re.sub(r"</p>\s*", "\n\n", html)
-    text = re.sub(r"<br\s*/?>", "\n", text)
-    text = re.sub(r"<li>", "- ", text)
-    text = re.sub(r"</li>", "\n", text)
-    text = re.sub(r"<[^>]+>", "", text)
-    import html as h
-    return h.unescape(re.sub(r"\n{3,}", "\n\n", text)).strip()
 
 
 @router.get("/applications/{app_id}")
@@ -335,9 +327,11 @@ def application(app_id: str, user: User = Depends(current_user)):
                                       from opportunity_contacts where id = %s""", (a["contact_id"],)).fetchone()
     draft = None
     if d:
-        plain = _html_to_plain(d["html"])
+        plain = html_to_plain(d["html"])
+        g = gmail.connection(user.id) if gmail.configured() else None
         draft = {**d, "plain": plain,
-                 "gmail_url": gmail_compose_url(d["to_addrs"][0], d["subject"], plain) if d["to_addrs"] else None}
+                 "gmail_url": gmail_compose_url(d["to_addrs"][0], d["subject"], plain) if d["to_addrs"] else None,
+                 "gmail_link": gmail.draft_link(g["email"], d["gmail_message_id"]) if g else None}
     if contact:
         contact = {**contact, "where": CONTEXT_LABEL[contact["context"]]}
     return {"application": a, "draft": draft, "resume": r, "events": events, "job": job, "match": match,

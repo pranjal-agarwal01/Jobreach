@@ -80,6 +80,12 @@ opens a match and presses "Prepare letter" (`pipeline/prepare.py`); a pasted pos
 straight away. Matching is code only, so it reruns whenever the profile, preferences or resumes
 change.
 
+## Gmail drafts and Google sign-in
+
+People can sign in with Google, and connect Gmail once so every letter that passes its checks is
+created as a draft in their own mailbox with the resume attached (`app/gmail.py`). Jobreach only
+creates drafts; the code refuses any other Gmail call. Setup: [docs/gmail-setup.md](docs/gmail-setup.md).
+
 ## Your own agent
 
 Someone who runs their own agent to find posts can have it send them to `POST /intake/leads`

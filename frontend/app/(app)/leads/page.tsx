@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { IconCheck, IconChevronDown, IconChevronRight, IconExternal, IconX } from "@/components/icons";
 import { Badge, Button, Empty, ErrorNote, Field, PageHeader, fmtDayInline, hoursLabel, inputCls } from "@/components/ui";
 import { api } from "@/lib/api";
+import { GmailBanner } from "@/components/GmailConnect";
 import { BUCKET } from "@/lib/opportunity";
 import type { Lead } from "@/lib/types";
 
@@ -70,7 +71,8 @@ export default function LeadsPage() {
           <span className="text-[13px] text-muted">Jobreach never logs into or scrapes LinkedIn. Pasted posts stay private to you.</span>
         </div>
       </form>
-      <div className="-mt-6 max-w-3xl">
+      <div className="-mt-6 flex max-w-3xl flex-col gap-3">
+        {(note || (leads && leads.length > 0)) && <GmailBanner />}
         <ErrorNote error={error} />
         {note && <p className="inline-flex items-center gap-2 text-sm font-medium text-ok"><IconCheck size={16} /> {note}</p>}
       </div>
@@ -124,7 +126,7 @@ function LeadRow({ l, reload }: { l: Lead; reload: () => void }) {
             <Link href={`/jobs/${l.application_id}`} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-accent hover:bg-accent-soft">
               Open folder <IconChevronRight size={16} />
             </Link>
-          ) : l.match_id && !dropped && !pending ? (
+          ) : l.match_id && !dropped && !pending && !writing ? (
             <Link href={`/opportunities/${l.match_id}`} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-accent hover:bg-accent-soft">
               Open <IconChevronRight size={16} />
             </Link>

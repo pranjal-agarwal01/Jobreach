@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useMe } from "@/components/AppShell";
 import AgentIntake from "@/components/AgentIntake";
 import FactBankEditor from "@/components/FactBankEditor";
+import { GmailCard } from "@/components/GmailConnect";
 import PreferencesForm from "@/components/PreferencesForm";
 import StageEditor from "@/components/StageEditor";
 import TracksEditor from "@/components/TracksEditor";
@@ -11,8 +12,8 @@ import { Button, Card, Empty, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
-const TABS = [["facts", "Profile"], ["tracks", "Resumes"], ["prefs", "Preferences"], ["agent", "Your agent"],
-  ["data", "Usage and data"]] as const;
+const TABS = [["facts", "Profile"], ["tracks", "Resumes"], ["prefs", "Preferences"], ["gmail", "Gmail"],
+  ["agent", "Your agent"], ["data", "Usage and data"]] as const;
 
 interface Usage {
   steps: { step: string; calls: number; input_tokens: number; output_tokens: number; cache_read_tokens: number;
@@ -55,6 +56,7 @@ export default function ProfilePage() {
             <PreferencesForm prefs={me.preferences} profile={me.profile} onSaved={refresh} />
           </div>
         )}
+        {tab === "gmail" && <GmailCard />}
         {tab === "agent" && <AgentIntake />}
         {tab === "data" && <DataTab />}
       </div>

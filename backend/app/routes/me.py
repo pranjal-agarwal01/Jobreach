@@ -151,6 +151,11 @@ def usage(user: User = Depends(current_user)):
 def delete_account(user: User = Depends(current_user)):
     """Real deletion (DPDP): removing the auth user cascades to every row the user owns,
     including stored resume files. Shared company rows hold no personal data."""
+    from .. import gmail
+    try:
+        gmail.disconnect(user.id)            # revoke Jobreach's Gmail access at Google first
+    except Exception:
+        pass
     with system_tx() as conn:
         conn.execute("delete from auth.users where id = %s", (user.id,))
     audit(None, "account_deleted", {"user": user.id})

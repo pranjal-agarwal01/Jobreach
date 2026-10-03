@@ -152,13 +152,21 @@ export interface Application {
   age_at_capture_hours: number | null; age_at_draft_hours: number | null; judgment_calls: string[];
   notes: string | null; created_at: string; user_marked_sent_at: string | null; lint_ok: boolean | null;
   domain: string | null; verification: string | null; business_summary: string | null; source_ref: string | null;
-  source: string; resume_id: Id | null; resume_filename: string | null;
+  source: string; resume_id: Id | null; resume_filename: string | null; in_gmail: boolean | null;
 }
 export interface ResumeLink { token: string; url: string; opens: number; last_opened_at: string | null; created_at: string }
 export interface LintCheck { check: string; ok: boolean; detail: string }
 export interface Draft {
   id: Id; to_addrs: string[]; subject: string; html: string; plain: string; lint: LintCheck[];
   lint_ok: boolean; gmail_url: string | null; version: number;
+  /** Set once the letter is a draft in the person's own Gmail. */
+  gmail_draft_id: string | null; gmail_message_id: string | null; gmail_drafted_at: string | null;
+  gmail_error: string | null; gmail_link: string | null;
+}
+
+/** The person's Gmail connection: letters are created as drafts there. */
+export interface GmailStatus {
+  available: boolean; connected: boolean; expired: boolean; email: string | null; connected_at: string | null;
 }
 export interface EventRow { id: Id; type: string; occurred_at: string; deadline_at: string | null; summary: string | null }
 export interface AppDetail {

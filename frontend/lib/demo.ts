@@ -20,6 +20,16 @@ export function setDemo(on: boolean) {
 }
 
 const ago = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
+
+// A pretend Gmail connection. Kept in the browser because connecting reloads the page.
+const GMAIL_KEY = "jobreach-demo-gmail";
+function gmailConnected(): boolean {
+  try { return typeof window !== "undefined" && window.localStorage.getItem(GMAIL_KEY) === "1"; } catch { return false; }
+}
+function setGmailConnected(on: boolean) {
+  try { if (on) window.localStorage.setItem(GMAIL_KEY, "1"); else window.localStorage.removeItem(GMAIL_KEY); } catch { /* private window */ }
+}
+const DEMO_GMAIL = "aarav.mehta@example.com";
 const ahead = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
 
 const SIGNATURE = `<p>Best regards,<br>Aarav Mehta<br>+91 90000 00001 | aarav.mehta@example.com</p>`;
@@ -84,6 +94,7 @@ function application(c: Co): Application {
     user_marked_sent_at: c.sentAt !== undefined ? ago(c.sentAt) : null, lint_ok: c.status !== "needs_review",
     domain: c.domain, verification: c.calls.length ? "flag" : "pass", business_summary: c.summary,
     source_ref: null, source: "paste", resume_id: "r" + c.id, resume_filename: "resume_Aarav_Mehta.pdf",
+    in_gmail: gmailConnected() && c.route === "email" && c.status === "drafted",
   };
 }
 
@@ -107,6 +118,10 @@ function draftFor(c: Co) {
     id: "d" + c.id, to_addrs: [c.status === "needs_review" ? "neha.iyer@gmail.com" : `careers@${c.domain}`],
     subject: `${c.role} application: Aarav Mehta (B.Tech IT, 2027)`, html, plain, lint, lint_ok: c.status !== "needs_review",
     gmail_url: null, version: 1,
+    ...(gmailConnected() && c.status === "drafted"
+      ? { gmail_draft_id: "r-demo-" + c.id, gmail_message_id: "demo" + c.id, gmail_drafted_at: ago(0.2), gmail_error: null,
+          gmail_link: "https://mail.google.com/mail/u/0/#drafts" }
+      : { gmail_draft_id: null, gmail_message_id: null, gmail_drafted_at: null, gmail_error: null, gmail_link: null }),
   };
 }
 
@@ -384,6 +399,8 @@ function route(method: string, path: string, body: unknown): unknown {
     if (p === "/leads") return LEADS;
     if (p === "/factbank") return FACTBANK;
     if (p === "/intake/keys") return intakeKeys;
+    if (p === "/gmail") return { available: true, connected: gmailConnected(), expired: false,
+      email: gmailConnected() ? DEMO_GMAIL : null, connected_at: gmailConnected() ? ago(0.1) : null };
     if (p === "/tracks") return TRACKS;
     if (p === "/onboarding/review") return review();
     if (p === "/onboarding/status") {
@@ -416,6 +433,13 @@ function route(method: string, path: string, body: unknown): unknown {
     return { ok: true };
   }
   if (p === "/leads" && method === "POST") return { job_id: "jdemo", duplicate: false };
+  if (p === "/gmail/connect") {
+    setGmailConnected(true);
+    const back = (body as { return_to?: string } | undefined)?.return_to ?? "/today";
+    return { url: back + "?gmail=connected" };
+  }
+  if (p === "/gmail" && method === "DELETE") { setGmailConnected(false); return { ok: true }; }
+  if (p.endsWith("/gmail-draft")) return { queued: true };
   if (p === "/intake/keys" && method === "POST") {
     const key = "jri_demoOnlyNotARealKey" + Math.random().toString(36).slice(2, 10);
     const row = { id: "k" + (intakeKeys.length + 1), name: (body as { name: string }).name, prefix: key.slice(0, 12),

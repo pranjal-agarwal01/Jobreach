@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { GmailBanner } from "@/components/GmailConnect";
 import OpportunityCard, { BucketHeading } from "@/components/OpportunityCard";
-import { IconAlert, IconChevronRight, IconClock, IconPaste } from "@/components/icons";
+import { IconAlert, IconChevronRight, IconClock, IconMail, IconPaste } from "@/components/icons";
 import { Badge, Button, Empty, ErrorNote, Freshness, Monogram, PageHeader, fmtWhen, hoursLabel } from "@/components/ui";
 import { api } from "@/lib/api";
 import { describe } from "@/lib/stage";
@@ -47,6 +48,8 @@ export default function TodayPage() {
       <PageHeader title={title} sub={sub}
         actions={<Link href="/leads"><Button variant="secondary"><IconPaste size={17} /> Paste a post</Button></Link>} />
 
+      <GmailBanner />
+
       {t.processing > 0 && (
         <p className="-mt-6 inline-flex items-center gap-2 self-start rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent">
           <span className="size-2 animate-pulse rounded-full bg-accent" />
@@ -72,6 +75,7 @@ export default function TodayPage() {
                         <Freshness hours={a.age_at_draft_hours} />
                         <span className="text-xs text-muted">{a.route === "email" ? `to ${a.apply_to}` : "apply on their portal"}</span>
                       </div>
+                      {a.in_gmail && <span className="hidden sm:inline-flex"><Badge tone="ok"><IconMail size={13} /> In Gmail</Badge></span>}
                       {a.status === "needs_review" && <span className="hidden sm:inline-flex"><Badge tone="warn"><IconAlert size={13} /> Needs a look</Badge></span>}
                       <IconChevronRight size={18} className="shrink-0 text-muted transition-transform group-hover:translate-x-0.5" />
                     </Link>

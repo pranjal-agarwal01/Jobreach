@@ -35,6 +35,12 @@ services:
         value: http://localhost:3000
       - key: DB_POOL_MAX
         value: "5"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
 
   - type: worker
     name: jobreach-worker
@@ -61,3 +67,9 @@ services:
         value: "1"
       - key: DB_POOL_MAX
         value: "3"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false

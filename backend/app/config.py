@@ -54,6 +54,11 @@ class Settings:
     public_base_url: str = (os.environ.get("PUBLIC_BASE_URL") or (
         "https://" + os.environ["RENDER_EXTERNAL_HOSTNAME"] if os.environ.get("RENDER_EXTERNAL_HOSTNAME")
         else "http://localhost:8000")).strip()
+    # Gmail drafts (app/gmail.py): the Google Cloud OAuth client the person connects through,
+    # and the key that encrypts each person's stored Gmail access (a Fernet key).
+    google_client_id: str = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    google_client_secret: str = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+    token_encryption_key: str = os.environ.get("TOKEN_ENCRYPTION_KEY", "").strip()
     # Database connections this process may hold. The API and the worker share Supabase's
     # pooler, so each is kept small.
     db_pool_max: int = int(os.environ.get("DB_POOL_MAX", "10"))
@@ -80,6 +85,16 @@ class Settings:
         ending /api/projects/<name>). The v1 API always lives at the host's /openai/v1/."""
         u = urlsplit(self.azure_openai_endpoint.strip())
         return f"{u.scheme}://{u.netloc}/openai/v1/" if u.netloc else ""
+
+    @property
+    def frontend_url(self) -> str:
+        """Where the web app runs: the browser returns here after connecting Gmail."""
+        return (os.environ.get("FRONTEND_URL") or self.cors_origins[0]).rstrip("/")
+
+    @property
+    def gmail_redirect_uri(self) -> str:
+        """Google sends the browser back here; it must be listed on the OAuth client."""
+        return os.environ.get("GMAIL_REDIRECT_URI") or self.public_base_url.rstrip("/") + "/gmail/callback"
 
     @property
     def jwks_url(self) -> str:

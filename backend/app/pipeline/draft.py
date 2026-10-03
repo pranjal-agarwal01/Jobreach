@@ -7,6 +7,7 @@ escaped) and appends the user's signature verbatim, so neither can be mangled by
 from __future__ import annotations
 
 import html as htmlmod
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 from urllib.parse import quote
@@ -149,3 +150,13 @@ def gmail_compose_url(to_addr: str, subject: str, plain: str) -> str:
     user attaches the resume). The body travels in the URL, so it lands in browser history."""
     return "https://mail.google.com/mail/?view=cm&fs=1&to={}&su={}&body={}".format(
         quote(to_addr), quote(subject), quote(plain))
+
+
+def html_to_plain(html: str) -> str:
+    """A stored letter's HTML as plain text: paragraphs, line breaks and list items kept."""
+    text = re.sub(r"</p>\s*", "\n\n", html)
+    text = re.sub(r"<br\s*/?>", "\n", text)
+    text = re.sub(r"<li>", "- ", text)
+    text = re.sub(r"</li>", "\n", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    return htmlmod.unescape(re.sub(r"\n{3,}", "\n\n", text)).strip()
