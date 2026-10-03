@@ -12,6 +12,7 @@ import socket
 import time
 import traceback
 
+import psycopg
 from psycopg.types.json import Jsonb
 
 from . import gmail, llm
@@ -31,6 +32,7 @@ STALE_MINUTES = 15
 POOL_KINDS = {"pool_tick", "poll_board", "poll_hn", "scan_company"}
 PRIORITY_PERSON, PRIORITY_POOL = 10, 0
 SCHEDULE_CHECK_SECONDS = 60
+DB_DOWN_WAIT_SECONDS = 10
 
 
 def enqueue(conn, user_id, kind: str, payload: dict) -> int:
@@ -55,6 +57,19 @@ def claim():
                where id = (select id from task_queue where status = 'queued' and run_after <= now()
                            order by priority desc, id for update skip locked limit 1)
                returning *""", (WORKER_ID,)).fetchone()
+
+
+def _db_retry(fn, *args, attempts: int = 3):
+    """Supabase's pooler now and then drops a connection. The pool throws the dead one away, so a
+    second try gets a fresh connection; only a database that stays unreachable raises."""
+    for i in range(attempts):
+        try:
+            return fn(*args)
+        except psycopg.OperationalError as e:
+            if i == attempts - 1:
+                raise
+            log.warning("database connection dropped (%s); trying again", str(e).splitlines()[0])
+            time.sleep(1 + i)
 
 
 def _done(task_id: int) -> None:
@@ -136,22 +151,35 @@ def run_forever() -> None:
                 schedule_pool()
             except Exception as e:  # the pool must never stop people's own tasks
                 log.error("pool schedule: %s", e)
-        task = claim()
+        # The worker never exits over a database hiccup: it waits and tries again.
+        try:
+            task = _db_retry(claim)
+        except psycopg.OperationalError as e:
+            log.error("database unreachable, waiting %ss: %s", DB_DOWN_WAIT_SECONDS, str(e).splitlines()[0])
+            time.sleep(DB_DOWN_WAIT_SECONDS)
+            continue
         if task is None:
             time.sleep(settings.worker_poll_seconds)
             continue
-        t0 = time.monotonic()
         try:
-            handle(task)
-            _done(task["id"])
-            log.info("task %s %s done in %.1fs", task["id"], task["kind"], time.monotonic() - t0)
-        except (llm.LLMRefusal, resume_mod.ResumeTooLong, run_mod.LeadError, prepare_mod.PrepareError,
-                match_mod.MatchError, opp_mod.OpportunityError, gmail.GmailError, ValueError) as e:
-            _failed(task, str(e), retry=False)
-            log.warning("task %s %s failed: %s", task["id"], task["kind"], e)
-        except Exception as e:  # transient: API, network, renderer
-            _failed(task, "{}: {}".format(type(e).__name__, e), retry=True)
-            log.error("task %s %s error: %s\n%s", task["id"], task["kind"], e, traceback.format_exc())
+            run_task(task)
+        except Exception as e:  # couldn't even record the outcome; the stale-task sweep requeues it
+            log.error("task %s %s: outcome not recorded: %s", task["id"], task["kind"], e)
+
+
+def run_task(task) -> None:
+    t0 = time.monotonic()
+    try:
+        handle(task)
+        _db_retry(_done, task["id"])
+        log.info("task %s %s done in %.1fs", task["id"], task["kind"], time.monotonic() - t0)
+    except (llm.LLMRefusal, resume_mod.ResumeTooLong, run_mod.LeadError, prepare_mod.PrepareError,
+            match_mod.MatchError, opp_mod.OpportunityError, gmail.GmailError, ValueError) as e:
+        _db_retry(_failed, task, str(e), False)
+        log.warning("task %s %s failed: %s", task["id"], task["kind"], e)
+    except Exception as e:  # transient: API, network, renderer, a dropped database connection
+        _db_retry(_failed, task, "{}: {}".format(type(e).__name__, e), True)
+        log.error("task %s %s error: %s\n%s", task["id"], task["kind"], e, traceback.format_exc())
 
 
 if __name__ == "__main__":
